@@ -1,9 +1,11 @@
-import { Button } from '@/components/ui/button'
-import { Bell, Menu, LogOut, Shield } from 'lucide-react'
-import { useState } from 'react'
+import { Button } from '@/components/ui/button';
+import { Bell, Menu, LogOut, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import Settings from './Settings';
 
 export default function Header({ isLoggedIn, user }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <header className="bg-white shadow-lg py-4">
@@ -11,24 +13,39 @@ export default function Header({ isLoggedIn, user }) {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">SecureVision</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Wifi Vision</h1>
           </div>
           {isLoggedIn && (
             <>
               <nav className="hidden md:flex items-center space-x-4">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                >
                   Dashboard
                 </Button>
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
-                  Analytics
-                </Button>
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
+
+                {/*  <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                >
                   Settings
-                </Button>
-                <Button variant="ghost" size="icon" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
+                  <Link to="/Settings"></Link>
+                </Button> */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                >
                   <Bell className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                >
                   <LogOut className="h-5 w-5 mr-2" />
                   Logout
                 </Button>
@@ -46,6 +63,5 @@ export default function Header({ isLoggedIn, user }) {
         </div>
       </div>
     </header>
-  )
+  );
 }
-
