@@ -1,33 +1,90 @@
+import React from 'react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Lock,
-  User,
-  Mail,
-  Github,
-  FacebookIcon,
-  Instagram,
-} from 'lucide-react';
+import { Lock, User, Mail, Github, Facebook, Twitter } from 'lucide-react';
 import { FloatingCard, FloatingElement } from './floating-card';
-import { Facebook, InstagramIcon, Twitter } from 'lucide-react';
+import { useUser } from '../components/contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
-export default function Login({ onLogin }) {
+export default function Login(onLogin) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
+  const navigate = useNavigate();
+  const { login, error, isLoading, currentUser } = useUser(); // Moved hook call outside conditional block
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    onLogin({ username });
+
+    if (!username || !password) {
+      toast({
+        title: 'Error',
+        description: 'Please enter both username and password',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const success = await login(username, password);
+
+    if (success) {
+      // Call the onLogin callback
+      onLogin({ username });
+
+      // Redirect based on role
+      if (currentUser && currentUser.role === 'admin') {
+        console.log('Admin login detected, redirecting to admin dashboard');
+        navigate('/admin');
+      } else {
+        console.log('User login detected, redirecting to user dashboard');
+        navigate('/dashboard');
+      }
+    } else if (error) {
+      toast({
+        title: 'Login Failed',
+        description: error,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSignup = (e) => {
     e.preventDefault();
-    console.log('Signup with:', { username, email, password });
+    toast({
+      title: 'Registration not available',
+      description: 'Please contact an administrator to create an account.',
+    });
+  };
+
+  const handleAdminLogin = async () => {
+    setUsername('admin');
+    setPassword('admin123');
+
+    const success = await login('admin', 'admin123');
+
+    if (success) {
+      console.log(
+        'Admin demo login successful, redirecting to admin dashboard'
+      );
+      navigate('/admin');
+    } else if (error) {
+      toast({
+        title: 'Admin Login Failed',
+        description: error || 'Could not log in with admin credentials',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUserLogin = async () => {
+    setUsername('user1');
+    setPassword('password123');
+    await login('user1', 'password123');
   };
 
   return (
@@ -120,9 +177,31 @@ export default function Login({ onLogin }) {
                       <Button
                         type="submit"
                         className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                        disabled={isLoading}
                       >
-                        Login
+                        {isLoading ? 'Logging in...' : 'Login'}
                       </Button>
+
+                      <div className="flex justify-center space-x-4 mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAdminLogin}
+                          className="text-sm"
+                        >
+                          Admin Demo
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleUserLogin}
+                          className="text-sm"
+                        >
+                          User Demo
+                        </Button>
+                      </div>
                     </motion.div>
                   </form>
                 </TabsContent>
@@ -205,10 +284,10 @@ export default function Login({ onLogin }) {
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      xmlnsXlink="http://www.w3.org/1999/xlink"
                       viewBox="0 0 48 48"
-                      width="48px"
-                      height="48px"
+                      width="24px"
+                      height="24px"
+                      className="mr-2"
                     >
                       <path
                         fill="#EA4335"
@@ -233,8 +312,8 @@ export default function Login({ onLogin }) {
                     variant="outline"
                     className="flex-1 h-12 border-gray-200 hover:bg-blue-50"
                   >
-                    <Facebook></Facebook>
-                    facebook
+                    <Facebook className="w-5 h-5 mr-2" />
+                    Facebook
                   </Button>
                   <Button
                     variant="outline"
@@ -284,7 +363,7 @@ export default function Login({ onLogin }) {
             <FloatingElement className="absolute bottom-20 right-20 bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-lg w-72">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <Twitter></Twitter>
+                  <Twitter className="text-white" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Twitter</h3>
