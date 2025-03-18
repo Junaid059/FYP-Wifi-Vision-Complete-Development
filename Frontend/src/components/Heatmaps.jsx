@@ -21,7 +21,6 @@ import {
   Filter,
 } from 'lucide-react';
 
-// Floating animation components
 export function FloatingCard({ children, className, delay = 0 }) {
   return (
     <motion.div
@@ -61,20 +60,17 @@ export function FloatingElement({ children, className }) {
   );
 }
 
-// Generate heatmap data
 const generateHeatmapData = (width, height, hotspots = 3) => {
   const data = Array(height)
     .fill()
     .map(() => Array(width).fill(0));
 
-  // Create hotspots
   for (let i = 0; i < hotspots; i++) {
     const centerX = Math.floor(Math.random() * width);
     const centerY = Math.floor(Math.random() * height);
     const intensity = 0.7 + Math.random() * 0.3; // 0.7 to 1.0
     const radius = 5 + Math.floor(Math.random() * 10); // 5 to 15
 
-    // Fill the area around the hotspot
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const distance = Math.sqrt(
@@ -88,7 +84,6 @@ const generateHeatmapData = (width, height, hotspots = 3) => {
     }
   }
 
-  // Add some random noise
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       data[y][x] += Math.random() * 0.1;

@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -36,6 +34,7 @@ function UserForm({ existingUser, onSuccess }) {
     confirmPassword: '',
     role: existingUser?.role || 'user',
     isActive: existingUser?.isActive ?? true,
+    adminPassword: '',
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,7 +45,6 @@ function UserForm({ existingUser, onSuccess }) {
     const { name, value } = e.target ? e.target : e;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    // Clear error when field is edited
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -93,104 +91,64 @@ function UserForm({ existingUser, onSuccess }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
-
     try {
-      if (isEditMode && existingUser) {
-        const updateData = {
+      if (isEditMode) {
+        // For existing users, just update Firestore
+        await updateUser(existingUser.id, {
           username: formData.username,
           email: formData.email,
           role: formData.role,
-          isActive: formData.isActive,
-        };
-
-        // Only include password if it was changed
-        if (formData.password) {
-          // In a real app, you'd hash the password here or in the API
-          console.log('Password would be updated');
-        }
-
-        updateUser(existingUser.id, updateData);
-        toast({
-          title: 'User updated',
-          description: `User ${formData.username} has been updated successfully.`,
+          isActive: formData.isActive ?? true,
         });
+        toast.success(`User ${formData.username} updated successfully.`);
       } else {
-        addUser({
+        // For new users, create in both Auth and Firestore
+        await addUser({
           username: formData.username,
           email: formData.email,
-          password: formData.password, // Include the password
+          password: formData.password,
           role: formData.role,
-          isActive: formData.isActive,
+          isActive: formData.isActive ?? true,
         });
-        toast({
-          title: 'User created',
-          description: `User ${formData.username} has been created successfully.`,
-        });
-
-        // Reset form after successful creation
-        if (!isEditMode) {
-          setFormData({
-            username: '',
-            email: '',
-            password: '',
-            confirmPassword: '',
-            role: 'user',
-            isActive: true,
-          });
-        }
+        toast.success(`User ${formData.username} created successfully.`);
       }
 
-      if (onSuccess) {
-        onSuccess();
-      } else if (!isEditMode) {
-        // If you want to stay on the same page, comment out or remove this navigation
-        // navigate('/admin/users');
-
-        // Reset the form instead
-        setFormData({
-          username: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          role: 'user',
-          isActive: true,
-        });
-
-        // Show success message
-        toast({
-          title: 'Success',
-          description:
-            'User created successfully. You can add another user or navigate away.',
-        });
-      }
+      if (onSuccess) onSuccess();
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An error occurred while saving the user.',
-        variant: 'destructive',
-      });
+      console.error('Error saving user:', error);
+
+      let errorMessage = 'An error occurred while saving the user.';
+
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage =
+          'This email is already in use. Please use a different email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'The email address is not valid.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage =
+          'The password is too weak. It must be at least 6 characters.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(`Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Check if current user can edit roles
   const canEditRoles = currentUser?.role === 'admin';
 
   const getAvatarColor = (role) => {
     switch (role) {
       case 'admin':
         return 'bg-gradient-to-br from-red-500 to-pink-600 text-white';
-      case 'super':
-        return 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white';
       case 'user':
         return 'bg-gradient-to-br from-green-500 to-teal-600 text-white';
       default:
@@ -363,42 +321,15 @@ function UserForm({ existingUser, onSuccess }) {
                       (isEditMode && existingUser?.id === currentUser?.id)
                     }
                   >
-                    <SelectTrigger
-                      id="role"
-                      className={errors.role ? 'border-red-500' : ''}
-                    >
+                    <SelectTrigger id="role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem
-                        value="admin"
-                        className="flex items-center gap-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                          Admin
-                        </div>
-                      </SelectItem>
-                      <SelectItem
-                        value="super"
-                        className="flex items-center gap-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                          Super User
-                        </div>
-                      </SelectItem>
-                      <SelectItem
-                        value="user"
-                        className="flex items-center gap-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          Regular User
-                        </div>
-                      </SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="user">Regular User</SelectItem>
                     </SelectContent>
                   </Select>
+
                   {!canEditRoles && (
                     <p className="text-xs text-amber-500 flex items-center gap-1">
                       <Shield className="h-3 w-3" />

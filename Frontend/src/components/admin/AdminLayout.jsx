@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -35,11 +33,9 @@ function AdminLayout({ children }) {
   useEffect(() => {
     setIsClient(true);
 
-    // Add a small delay to ensure the user context is loaded
     const timer = setTimeout(() => {
       setIsLoading(false);
 
-      // Check if user is logged in and is an admin
       if (!currentUser) {
         console.log('No user found, redirecting to login');
         navigate('/');
@@ -147,7 +143,7 @@ function AdminLayout({ children }) {
               </Button>
             </div>
 
-            <div className="border-t border-gray-200 pt-4">
+            {/* <div className="border-t border-gray-200 pt-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">
                 {isSidebarOpen ? 'System' : ''}
               </p>
@@ -169,7 +165,7 @@ function AdminLayout({ children }) {
                 <Database className="h-5 w-5 mr-2" />
                 {isSidebarOpen && <span>Database</span>}
               </Button>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -212,7 +208,6 @@ function AdminLayout({ children }) {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-auto">
         <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center justify-between p-4">

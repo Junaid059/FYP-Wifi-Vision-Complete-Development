@@ -1,402 +1,471 @@
-import React from 'react';
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Lock, User, Mail, Github, Facebook, Twitter } from 'lucide-react';
-import { FloatingCard, FloatingElement } from './floating-card';
-import { useUser } from '../components/contexts/UserContext';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from './contexts/UserContext';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import {
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from './ui/card';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import {
+  LockKeyhole,
+  Mail,
+  AlertCircle,
+  Shield,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  CheckCircle2,
+} from 'lucide-react';
+import { FloatingCard, FloatingElement } from './floating-card';
 
-export default function Login(onLogin) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+function LoginPage() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [adminExists, setAdminExists] = useState(true);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const navigate = useNavigate();
-  const { login, error, isLoading, currentUser } = useUser(); // Moved hook call outside conditional block
+  const { currentUser, setCurrentUser, login, checkAdminExists } = useUser();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      // User is already logged in, redirect based on role
+      if (currentUser.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [currentUser, navigate]);
+
+  // Check if admin exists when component mounts
+  useEffect(() => {
+    const checkAdmin = async () => {
+      setIsCheckingAdmin(true);
+      try {
+        const exists = await checkAdminExists();
+        setAdminExists(exists);
+      } catch (error) {
+        console.error('Error checking admin:', error);
+      } finally {
+        setIsCheckingAdmin(false);
+      }
+    };
+
+    checkAdmin();
+  }, [checkAdminExists]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-    if (!username || !password) {
-      toast({
-        title: 'Error',
-        description: 'Please enter both username and password',
-        variant: 'destructive',
-      });
-      return;
-    }
+    try {
+      // Login with Firebase
+      const userData = await login(email, password);
 
-    const success = await login(username, password);
-
-    if (success) {
-      // Call the onLogin callback
-      onLogin({ username });
+      // Set the current user with role information
+      setCurrentUser(userData);
 
       // Redirect based on role
-      if (currentUser && currentUser.role === 'admin') {
-        console.log('Admin login detected, redirecting to admin dashboard');
+      if (userData.role === 'admin') {
+        toast.success('Admin login successful!');
         navigate('/admin');
       } else {
-        console.log('User login detected, redirecting to user dashboard');
+        toast.success('Login successful!');
         navigate('/dashboard');
       }
-    } else if (error) {
-      toast({
-        title: 'Login Failed',
-        description: error,
-        variant: 'destructive',
-      });
+    } catch (error) {
+      console.error('Login error:', error);
+
+      if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email');
+      } else if (error.code === 'auth/wrong-password') {
+        setError('Incorrect password');
+      } else if (error.code === 'auth/invalid-credential') {
+        setError('Invalid login credentials');
+      } else if (error.message === 'User account is not properly set up') {
+        setError(
+          'Your account is not properly set up. Please contact an administrator.'
+        );
+      } else {
+        setError(error.message || 'An error occurred during login');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSignup = (e) => {
-    e.preventDefault();
-    toast({
-      title: 'Registration not available',
-      description: 'Please contact an administrator to create an account.',
-    });
-  };
-
-  const handleAdminLogin = async () => {
-    setUsername('admin');
-    setPassword('admin123');
-
-    const success = await login('admin', 'admin123');
-
-    if (success) {
-      console.log(
-        'Admin demo login successful, redirecting to admin dashboard'
-      );
-      navigate('/admin');
-    } else if (error) {
-      toast({
-        title: 'Admin Login Failed',
-        description: error || 'Could not log in with admin credentials',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUserLogin = async () => {
-    setUsername('user1');
-    setPassword('password123');
-    await login('user1', 'password123');
-  };
+  if (isCheckingAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-white to-blue-50">
+        <div className="relative">
+          <div className="h-16 w-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="absolute inset-0 h-16 w-16 border-4 border-blue-200 rounded-full animate-pulse"></div>
+        </div>
+        <div className="mt-8 text-center">
+          <h3 className="text-xl font-semibold text-blue-900">
+            Initializing System
+          </h3>
+          <p className="mt-2 text-blue-600">Checking configuration status...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white -z-10" />
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600 clip-path-diagonal" />
-
-      <div className="container mx-auto flex items-center justify-center h-full p-4 m-20">
-        <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8 items-center">
-          {/* Form Section */}
-          <Card className="p-8 bg-white/80 backdrop-blur-lg shadow-2xl rounded-3xl border-0">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-6"
-            >
-              <div className="text-center mb-8">
-                <motion.h1
-                  className="text-3xl font-bold text-gray-900"
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  Welcome to WIVI
-                </motion.h1>
-                <motion.p
-                  className="text-gray-500 mt-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  Your security, our priority
-                </motion.p>
-              </div>
-
-              <Tabs defaultValue="login" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-2 bg-blue-50 rounded-lg p-1">
-                  <TabsTrigger
-                    value="login"
-                    className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-md transition-all"
-                  >
-                    Login
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="signup"
-                    className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-md transition-all"
-                  >
-                    Sign Up
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="login">
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="space-y-4"
-                    >
-                      <div className="relative group">
-                        <Input
-                          type="text"
-                          placeholder="Username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                          className="pl-10 h-12 border-gray-200 rounded-xl group-hover:border-blue-400 transition-colors"
-                        />
-                        <User
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors"
-                          size={18}
-                        />
-                      </div>
-                      <div className="relative group">
-                        <Input
-                          type="password"
-                          placeholder="Password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          className="pl-10 h-12 border-gray-200 rounded-xl group-hover:border-blue-400 transition-colors"
-                        />
-                        <Lock
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors"
-                          size={18}
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Logging in...' : 'Login'}
-                      </Button>
-
-                      <div className="flex justify-center space-x-4 mt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleAdminLogin}
-                          className="text-sm"
-                        >
-                          Admin Demo
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleUserLogin}
-                          className="text-sm"
-                        >
-                          User Demo
-                        </Button>
-                      </div>
-                    </motion.div>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="signup">
-                  <form onSubmit={handleSignup} className="space-y-4">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="space-y-4"
-                    >
-                      <div className="relative group">
-                        <Input
-                          type="text"
-                          placeholder="Username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                          className="pl-10 h-12 border-gray-200 rounded-xl group-hover:border-blue-400 transition-colors"
-                        />
-                        <User
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors"
-                          size={18}
-                        />
-                      </div>
-                      <div className="relative group">
-                        <Input
-                          type="email"
-                          placeholder="Email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          className="pl-10 h-12 border-gray-200 rounded-xl group-hover:border-blue-400 transition-colors"
-                        />
-                        <Mail
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors"
-                          size={18}
-                        />
-                      </div>
-                      <div className="relative group">
-                        <Input
-                          type="password"
-                          placeholder="Password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          className="pl-10 h-12 border-gray-200 rounded-xl group-hover:border-blue-400 transition-colors"
-                        />
-                        <Lock
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors"
-                          size={18}
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        Sign Up
-                      </Button>
-                    </motion.div>
-                  </form>
-                </TabsContent>
-
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-200"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">
-                      Or continue with
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-12 border-gray-200 hover:bg-blue-50"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 48 48"
-                      width="24px"
-                      height="24px"
-                      className="mr-2"
-                    >
-                      <path
-                        fill="#EA4335"
-                        d="M24 9.5c3.5 0 6.3 1.2 8.4 2.3l6.2-6.2C34.4 2.5 29.5 1 24 1 14.8 1 6.9 6.8 3.5 15.3l7.4 5.7C12.8 13.8 18 9.5 24 9.5z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M24 47c5.4 0 10.1-1.8 13.5-5.1l-7-5.7C28.6 37.4 26.4 38 24 38c-5.2 0-9.6-3.4-11.2-8.2l-7.5 5.8C8.6 42.8 15.7 47 24 47z"
-                      />
-                      <path
-                        fill="#4A90E2"
-                        d="M43.6 20H24v8.9h11.2c-1 4.1-4.8 7.1-11.2 7.1-6.5 0-11.7-5.4-11.7-12s5.2-12 11.7-12c3.4 0 6.3 1.3 8.4 3.4l6.2-6.2C35.6 4.6 30.2 2 24 2 13.3 2 4.6 9.6 4.6 20S13.3 38 24 38c8.2 0 15-5.8 15-14 0-.9-.1-1.9-.4-3z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M24 14c2.7 0 4.6 1.1 5.7 2.2l4.1-4.1C31.3 9.6 28.4 8 24 8c-5.2 0-9.6 3.5-11.2 8.3l7.4 5.7C21 14.3 22.4 14 24 14z"
-                      />
-                    </svg>
-                    Google
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-12 border-gray-200 hover:bg-blue-50"
-                  >
-                    <Facebook className="w-5 h-5 mr-2" />
-                    Facebook
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-12 border-gray-200 hover:bg-blue-50"
-                  >
-                    <Github className="w-5 h-5 mr-2" />
-                    GitHub
-                  </Button>
-                </div>
-              </Tabs>
-            </motion.div>
-          </Card>
-
-          {/* Decorative Elements */}
-          <div className="hidden md:block relative h-full">
-            <FloatingCard
-              className="absolute top-10 right-10 bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-lg w-64"
-              delay={0.4}
-            >
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.908 4.908 0 0 1 1.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 0 1-1.153 1.772 4.915 4.915 0 0 1-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 0 1-1.772-1.153 4.904 4.904 0 0 1-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 0 1 1.153-1.772A4.897 4.897 0 0 1 5.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6.5-.25a1.25 1.25 0 0 0-2.5 0 1.25 1.25 0 0 0 2.5 0zM12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">wivi</h3>
-                  <p className="text-sm text-gray-500">
-                    follow us on Social Media
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-2 bg-gray-200 rounded-full w-3/4"></div>
-                <div className="h-2 bg-gray-200 rounded-full w-1/2"></div>
-              </div>
-            </FloatingCard>
-
-            <FloatingElement className="absolute bottom-20 right-20 bg-white/90 backdrop-blur-lg rounded-2xl p-6 shadow-lg w-72">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <Twitter className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Twitter</h3>
-                  <p className="text-sm text-gray-500">Photo Sharing</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-2 bg-gray-200 rounded-full w-2/3"></div>
-                <div className="h-2 bg-gray-200 rounded-full w-1/2"></div>
-              </div>
-            </FloatingElement>
-
-            <FloatingCard
-              className="absolute top-1/2 left-10 transform -translate-y-1/2 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-6 shadow-lg w-56"
-              delay={0.6}
-            >
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
-                  <span className="font-bold">WV</span>
-                </div>
-                <div>
-                  <h3 className="font-semibold">Wifi Vision</h3>
-                  <p className="text-sm text-blue-200">Security</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-2 bg-white/20 rounded-full w-3/4"></div>
-                <div className="h-2 bg-white/20 rounded-full w-1/2"></div>
-              </div>
-            </FloatingCard>
+    <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 flex flex-col md:flex-row">
+      {/* Left side - Branding */}
+      <div className="hidden md:flex md:w-1/2 p-12 bg-gradient-to-br from-blue-600 to-blue-800 text-white flex-col justify-between relative overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-full h-full">
+            {[...Array(10)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute rounded-full bg-white"
+                style={{
+                  width: `${Math.random() * 300 + 50}px`,
+                  height: `${Math.random() * 300 + 50}px`,
+                  top: `${Math.random() * 100}%`,
+                  left: `${Math.random() * 100}%`,
+                  opacity: Math.random() * 0.5,
+                }}
+              />
+            ))}
           </div>
         </div>
+
+        {/* Content */}
+        <div className="relative z-10">
+          <div className="flex items-center space-x-2">
+            <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center">
+              <Shield className="h-6 w-6 text-blue-600" />
+            </div>
+            <h1 className="text-2xl font-bold">WIVI</h1>
+          </div>
+        </div>
+
+        <div className="relative z-10 space-y-6">
+          <h2 className="text-4xl font-bold tracking-tight">
+            {adminExists
+              ? 'Welcome back to your workspace'
+              : 'Set up your admin account'}
+          </h2>
+          <p className="text-xl text-blue-100">
+            {adminExists
+              ? 'Securely access your dashboard and manage your resources with ease.'
+              : 'Create your first admin account to get started with the system.'}
+          </p>
+
+          <div className="flex flex-col space-y-4 pt-6">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 rounded-full bg-blue-500/30 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <p className="text-blue-100">Enterprise-grade security</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 rounded-full bg-blue-500/30 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <p className="text-blue-100">Real-time data synchronization</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 rounded-full bg-blue-500/30 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <p className="text-blue-100">Intuitive user interface</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 text-sm text-blue-200">
+          © {new Date().getFullYear()} WIVI. All rights reserved.
+        </div>
+
+        {/* Floating elements */}
+        <FloatingElement
+          className="absolute top-20 right-20 h-40 w-40 bg-blue-500/20 rounded-full blur-xl"
+          xFactor={10}
+          yFactor={15}
+        />
+        <FloatingElement
+          className="absolute bottom-20 left-20 h-60 w-60 bg-blue-400/20 rounded-full blur-xl"
+          xFactor={-10}
+          yFactor={-15}
+          delay={0.5}
+        />
+      </div>
+
+      {/* Right side - Login form */}
+      <div className="w-full md:w-1/2 flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          <FloatingCard className="border-0 shadow-2xl bg-white rounded-2xl">
+            <CardHeader className="space-y-1 text-center pb-2">
+              <div className="md:hidden flex items-center justify-center mb-4">
+                <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center">
+                  <Shield className="h-7 w-7 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-3xl font-bold text-blue-900">
+                {adminExists ? 'Sign In' : 'Admin Setup'}
+              </CardTitle>
+              <CardDescription className="text-blue-600">
+                {adminExists
+                  ? 'Enter your credentials to access the system'
+                  : 'Create the admin account to get started'}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="pt-6">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 mb-6 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3"
+                >
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-500" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
+              {adminExists ? (
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="email"
+                      className="text-sm font-medium text-blue-900 flex items-center gap-2"
+                    >
+                      <Mail className="h-4 w-4 text-blue-600" />
+                      Email Address
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-12 px-4 rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="password"
+                        className="text-sm font-medium text-blue-900 flex items-center gap-2"
+                      >
+                        <LockKeyhole className="h-4 w-4 text-blue-600" />
+                        Password
+                      </Label>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                        onClick={() =>
+                          toast.info(
+                            'Password reset functionality would go here'
+                          )
+                        }
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="h-12 px-4 rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-700"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                        <span className="sr-only">
+                          {showPassword ? 'Hide password' : 'Show password'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 mt-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl text-base font-medium"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Signing in...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 justify-center">
+                        <span>Sign in</span>
+                        <ArrowRight className="h-5 w-5" />
+                      </div>
+                    )}
+                  </Button>
+
+                  <div className="relative flex items-center justify-center mt-8 mb-4">
+                    <div className="border-t border-blue-100 absolute w-full"></div>
+                    <span className="bg-white px-4 text-sm text-blue-500 relative">
+                      or continue with
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                      onClick={() => toast.info('Google login would go here')}
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24">
+                        <path
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          fill="#4285F4"
+                        />
+                        <path
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          fill="#34A853"
+                        />
+                        <path
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                          fill="#FBBC05"
+                        />
+                        <path
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                          fill="#EA4335"
+                        />
+                        <path d="M1 1h22v22H1z" fill="none" />
+                      </svg>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                      onClick={() =>
+                        toast.info('Microsoft login would go here')
+                      }
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24">
+                        <path fill="#f25022" d="M1 1h10v10H1z" />
+                        <path fill="#00a4ef" d="M1 13h10v10H1z" />
+                        <path fill="#7fba00" d="M13 1h10v10H13z" />
+                        <path fill="#ffb900" d="M13 13h10v10H13z" />
+                      </svg>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+                      onClick={() => toast.info('Apple login would go here')}
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M14.94 5.19A4.38 4.38 0 0 0 16 2a4.44 4.44 0 0 0-3 1.52 4.17 4.17 0 0 0-1 3.09 3.69 3.69 0 0 0 2.94-1.42zm2.52 7.44A4.51 4.51 0 0 1 19 16.5a11.12 11.12 0 0 1-1.38 2.65c-.83 1.17-1.69 2.34-3.05 2.36s-1.88-.69-3.51-.69-2.12.68-3.45.72-2.27-1.07-3.11-2.25C2.13 16.25 1 13 1 9.89a6.8 6.8 0 0 1 3.32-6.21 5.58 5.58 0 0 1 4.74.36A5.05 5.05 0 0 1 12 4a4.99 4.99 0 0 1 2.94.05 5.73 5.73 0 0 1 2.52 1.72 5.18 5.18 0 0 0-2 4.25 5.15 5.15 0 0 0 2 2.61z" />
+                      </svg>
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-5">
+                  <div className="p-5 bg-amber-50 border border-amber-100 rounded-xl">
+                    <h3 className="font-medium text-amber-800 flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-amber-600" />
+                      Initial Setup Required
+                    </h3>
+                    <p className="mt-2 text-sm text-amber-700">
+                      No admin account has been created yet. Click the button
+                      below to create the admin account with these default
+                      credentials:
+                    </p>
+                    <div className="mt-3 p-4 bg-white rounded-xl border border-amber-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Mail className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <LockKeyhole className="h-4 w-4 text-blue-600" />
+                      </div>
+                    </div>
+                    <p className="mt-3 text-xs text-amber-700">
+                      You can change these credentials after logging in.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl text-base font-medium"
+                    onClick={handleCreateAdmin}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Creating Admin Account...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 justify-center">
+                        <span>Create Admin Account</span>
+                        <ArrowRight className="h-5 w-5" />
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+
+            {adminExists && (
+              <CardFooter className="flex justify-center pt-2 pb-6">
+                <p className="text-sm text-blue-600">
+                  Don't have an account?{' '}
+                  <button
+                    className="font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                    onClick={() =>
+                      toast.info('Sign up functionality would go here')
+                    }
+                  >
+                    Sign up
+                  </button>
+                </p>
+              </CardFooter>
+            )}
+          </FloatingCard>
+        </motion.div>
       </div>
     </div>
   );
 }
+
+export default LoginPage;

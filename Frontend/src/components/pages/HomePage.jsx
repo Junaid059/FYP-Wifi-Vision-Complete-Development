@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -13,14 +11,12 @@ function HomePage() {
   const { currentUser, logout } = useUser();
   const navigate = useNavigate();
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
     }
   }, [currentUser, navigate]);
 
-  // If no user, show nothing (will redirect)
   if (!currentUser) {
     return null;
   }

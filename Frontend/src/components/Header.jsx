@@ -23,17 +23,17 @@ function Header({ isLoggedIn, user, onLogout }) {
     }
   };
 
-  const goToAdmin = () => {
-    if (user && user.role === 'admin') {
-      navigate('/admin');
-    } else {
-      toast({
-        title: 'Access Denied',
-        description: "You don't have permission to access the admin panel.",
-        variant: 'destructive',
-      });
-    }
-  };
+  // const goToAdmin = () => {
+  //   if (user && user.role === 'admin') {
+  //     navigate('/admin');
+  //   } else {
+  //     toast({
+  //       title: 'Access Denied',
+  //       description: "You don't have permission to access the admin panel.",
+  //       variant: 'destructive',
+  //     });
+  //   }
+  // };
 
   return (
     <motion.header
@@ -65,13 +65,13 @@ function Header({ isLoggedIn, user, onLogout }) {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Button
+                  {/* <Button
                     variant="ghost"
                     size="sm"
                     className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
                   >
                     Dashboard
-                  </Button>
+                  </Button> */}
                 </motion.div>
 
                 <motion.div
@@ -135,9 +135,9 @@ function Header({ isLoggedIn, user, onLogout }) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem>Profile</DropdownMenuItem>
-                      <DropdownMenuItem onClick={goToAdmin}>
+                      {/* <DropdownMenuItem onClick={goToAdmin}>
                         Admin Panel
-                      </DropdownMenuItem>
+                      </DropdownMenuItem> */}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-red-500"

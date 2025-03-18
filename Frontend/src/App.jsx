@@ -1,55 +1,102 @@
-'use client';
-
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { UserProvider } from './components/contexts/UserContext';
+import { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { UserProvider, useUser } from './components/contexts/UserContext';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from 'sonner';
 import LoginPage from './components/pages/LoginPage';
-import HomePage from './components/pages/HomePage'; // This uses the existing Dashboard component
+import HomePage from './components/pages/HomePage';
 import AdminPage from './components/pages/AdminPage';
 import AdminUsersPage from './components/pages/AdminUsersPage';
 import AdminNewUserPage from './components/pages/AdminNewUserPage';
-import { useUser } from './components/contexts/UserContext';
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { collection, getDocs } from 'firebase/firestore';
+import { db, auth } from './firebaseConfig';
+import { signOut } from 'firebase/auth';
 
-// Route guard component that checks authentication
-function AuthGuard({ children, requiredRole = null }) {
-  const { currentUser } = useUser();
-  const navigate = useNavigate();
+// ✅ Check Firebase Connection
+function FirebaseConnectionCheck() {
+  const [connectionStatus, setConnectionStatus] = useState('checking');
 
   useEffect(() => {
-    // If no user is logged in, redirect to login
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
+    const testFirebase = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'users'));
+        console.log('✅ Firebase is connected. Users collection found!');
+        setConnectionStatus('connected');
+      } catch (error) {
+        console.error('❌ Firebase connection error:', error);
+        setConnectionStatus('error');
+      }
+    };
 
-    // If a specific role is required and user doesn't have it
-    if (requiredRole && currentUser.role !== requiredRole) {
-      // Redirect admin to admin dashboard, regular users to user dashboard
-      if (currentUser.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
+    testFirebase();
+  }, []);
+
+  return null; // This component doesn't render anything
+}
+
+// ✅ Auth Guard to Protect Routes
+function AuthGuard({ children, requiredRole = null }) {
+  const { currentUser, isLoading } = useUser();
+  const navigate = useNavigate();
+  const [hasChecked, setHasChecked] = useState(false);
+
+  useEffect(() => {
+    // Only redirect after we've checked auth state
+    if (!isLoading && !hasChecked) {
+      setHasChecked(true);
+
+      if (!currentUser) {
+        // No user is logged in, redirect to login
+        navigate('/login', { replace: true });
+      } else if (requiredRole && currentUser.role !== requiredRole) {
+        // User doesn't have required role, redirect based on their role
+        navigate(currentUser.role === 'admin' ? '/admin' : '/dashboard', {
+          replace: true,
+        });
       }
     }
-  }, [currentUser, navigate, requiredRole]);
+  }, [currentUser, isLoading, navigate, requiredRole, hasChecked]);
 
-  // If no user, don't render anything while redirecting
-  if (!currentUser) return null;
+  // Show loading state while checking auth
+  if (isLoading || !hasChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-2 text-gray-600">Loading...</span>
+      </div>
+    );
+  }
 
-  // If role is required and user doesn't have it, don't render
-  if (requiredRole && currentUser.role !== requiredRole) return null;
+  // If not loading and we have the right user, render children
+  if (!isLoading && currentUser) {
+    if (!requiredRole || currentUser.role === requiredRole) {
+      return children;
+    }
+  }
 
-  // Otherwise render the children
-  return children;
+  // Otherwise render nothing while redirecting
+  return null;
 }
 
 function App() {
+  // Always sign out when the app first loads
+  useEffect(() => {
+    const clearAuthOnStartup = async () => {
+      try {
+        await signOut(auth);
+        console.log('Auth state cleared on application startup');
+      } catch (error) {
+        console.error('Error clearing auth state:', error);
+      }
+    };
+
+    clearAuthOnStartup();
+  }, []);
+
   return (
     <UserProvider>
       <ThemeProvider defaultTheme="light" attribute="class">
+        <FirebaseConnectionCheck />
         <Routes>
           {/* Default route always redirects to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />

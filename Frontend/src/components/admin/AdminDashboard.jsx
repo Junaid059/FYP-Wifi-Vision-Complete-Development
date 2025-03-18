@@ -1,7 +1,6 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { useUser } from '../contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -27,6 +26,8 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { LogOut } from 'lucide-react';
+import { getAuth, signOut } from 'firebase/auth';
 
 // Dynamically import recharts components to avoid SSR issues
 import {
@@ -45,8 +46,7 @@ import {
   Area,
 } from 'recharts';
 
-function AdminDashboard() {
-  const { users } = useUser();
+function AdminDashboard({ onLogout }) {
   const [selectedTimeRange, setSelectedTimeRange] = useState('week');
   const [systemHealth, setSystemHealth] = useState(92);
   const [cpuUsage, setCpuUsage] = useState(68);
@@ -54,21 +54,25 @@ function AdminDashboard() {
   const [diskUsage, setDiskUsage] = useState(32);
   const [alertsCount, setAlertsCount] = useState(5);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const navigate = useNavigate();
+  const auth = getAuth();
 
   // Simulate changing metrics
   useEffect(() => {
     const interval = setInterval(() => {
       setCpuUsage((prev) =>
-        Math.max(30, Math.min(90, prev + (Math.random() - 0.5) * 10))
+        Math.round(
+          Math.max(30, Math.min(90, prev + (Math.random() - 0.5) * 10))
+        )
       );
       setMemoryUsage((prev) =>
-        Math.max(20, Math.min(80, prev + (Math.random() - 0.5) * 8))
+        Math.round(Math.max(20, Math.min(80, prev + (Math.random() - 0.5) * 8)))
       );
       setDiskUsage((prev) =>
-        Math.max(20, Math.min(70, prev + (Math.random() - 0.5) * 5))
+        Math.round(Math.max(20, Math.min(70, prev + (Math.random() - 0.5) * 5)))
       );
       setSystemHealth((prev) =>
-        Math.max(80, Math.min(98, prev + (Math.random() - 0.5) * 3))
+        Math.round(Math.max(80, Math.min(98, prev + (Math.random() - 0.5) * 3)))
       );
       setAlertsCount(Math.floor(Math.random() * 3) + 3);
     }, 5000);
@@ -76,15 +80,17 @@ function AdminDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate user statistics
-  const totalUsers = users.length;
-  const activeUsers = users.filter((user) => user.isActive).length;
-  const inactiveUsers = totalUsers - activeUsers;
+  const { users } = useUser();
 
-  // Count users by role
-  const adminCount = users.filter((user) => user.role === 'admin').length;
-  const superUserCount = users.filter((user) => user.role === 'super').length;
-  const regularUserCount = users.filter((user) => user.role === 'user').length;
+  // Handle empty state (if users are undefined or null)
+  // const totalUsers = users?.length || 0;
+  // const activeUsers = users?.filter((user) => user.isActive)?.length || 0;
+  const adminCount =
+    users?.filter((user) => user.role === 'admin')?.length || 0;
+  const superUserCount =
+    users?.filter((user) => user.role === 'super')?.length || 0;
+  const regularUserCount =
+    users?.filter((user) => user.role === 'user')?.length || 0;
 
   // Data for role distribution chart
   const roleData = [
@@ -154,7 +160,19 @@ function AdminDashboard() {
     }, 800);
   };
 
-  // Get severity badge color
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+
+      if (onLogout) {
+        onLogout();
+      }
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   const getSeverityColor = (severity) => {
     switch (severity) {
       case 'high':
@@ -170,7 +188,6 @@ function AdminDashboard() {
     }
   };
 
-  // Get severity icon
   const getSeverityIcon = (severity) => {
     switch (severity) {
       case 'high':
@@ -222,6 +239,16 @@ function AdminDashboard() {
               className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
             />
             Refresh
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-red-500"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
           </Button>
         </div>
       </div>
@@ -600,7 +627,6 @@ function AdminDashboard() {
         </Card>
       </motion.div>
 
-      {/* Recent User Activity and Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Recent User Activity */}
         <motion.div
@@ -683,7 +709,6 @@ function AdminDashboard() {
           </Card>
         </motion.div>
 
-        {/* System Alerts */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

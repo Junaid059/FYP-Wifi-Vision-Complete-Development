@@ -7,14 +7,10 @@ export default function LoginPage() {
   const { currentUser } = useUser();
   const navigate = useNavigate();
 
-  // Handle login success
   const handleLoginSuccess = (userData) => {
-    // The actual navigation will happen in the useEffect below
-    // This is just a callback for the Login component
     console.log('Login successful for:', userData.username);
   };
 
-  // Check if user is already logged in and redirect accordingly
   useEffect(() => {
     if (currentUser) {
       console.log(

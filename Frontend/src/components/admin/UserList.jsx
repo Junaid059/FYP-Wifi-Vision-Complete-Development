@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
@@ -81,27 +79,19 @@ function UserList() {
     return matchesSearch && matchesRole;
   });
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (selectedUser) {
-      deleteUser(selectedUser.id);
+      await deleteUser(selectedUser.id);
+      toast.success(
+        `User ${selectedUser.username} has been deleted successfully.`
+      );
       setIsDeleteDialogOpen(false);
-      setSelectedUser(null);
-
-      toast({
-        title: 'User deleted',
-        description: `User ${selectedUser.username} has been deleted successfully.`,
-      });
     }
   };
 
   const handleToggleUserStatus = (user) => {
-    // Prevent deactivating yourself
     if (user.id === currentUser?.id && user.isActive) {
-      toast({
-        title: 'Cannot deactivate',
-        description: 'You cannot deactivate your own account.',
-        variant: 'destructive',
-      });
+      toast('Cannot deactivate');
       return;
     }
 
@@ -117,7 +107,7 @@ function UserList() {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    // Simulate refresh delay
+
     setTimeout(() => {
       setIsRefreshing(false);
     }, 500);
