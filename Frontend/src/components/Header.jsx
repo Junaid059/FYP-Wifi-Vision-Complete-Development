@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Bell, Menu, LogOut, Shield, User } from 'lucide-react';
+import { Menu, LogOut, Shield, User } from 'lucide-react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -15,11 +15,27 @@ import { Router, useNavigate } from 'react-router-dom';
 function Header({ isLoggedIn, user, onLogout }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const [fcmToken, setFcmToken] = useState(null);
 
   const handleLogout = () => {
     if (onLogout) {
       onLogout();
       navigate('/login');
+    }
+  };
+
+  const handleNotificationRequest = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        const token = import.meta.env.VITE_VAPIDKEY; // Replace this with actual FCM token retrieval
+        console.log('FCM Token:', token);
+        setFcmToken(token);
+      } else {
+        console.log('Push notifications permission denied');
+      }
+    } catch (error) {
+      console.error('Error getting FCM token:', error);
     }
   };
 
@@ -61,17 +77,17 @@ function Header({ isLoggedIn, user, onLogout }) {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3, staggerChildren: 0.1 }}
               >
+                {/* Notifications Button */}
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  {/* <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                  <Button
+                    onClick={handleNotificationRequest}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
                   >
-                    Dashboard
-                  </Button> */}
+                    Enable Notifications
+                  </Button>
                 </motion.div>
 
                 <motion.div
@@ -80,40 +96,20 @@ function Header({ isLoggedIn, user, onLogout }) {
                 >
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
+                      {/* <Button
                         variant="ghost"
                         size="icon"
                         className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 relative"
                       >
                         <Bell className="h-5 w-5" />
                         <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-                      </Button>
+                      </Button> */}
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
-                      <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="flex flex-col items-start">
-                        <div className="font-medium">System Alert</div>
-                        <div className="text-xs text-gray-500">
-                          Motion detected in Zone 3
-                        </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          2 minutes ago
-                        </div>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="flex flex-col items-start">
-                        <div className="font-medium">Security Update</div>
-                        <div className="text-xs text-gray-500">
-                          New firmware available
-                        </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          1 hour ago
-                        </div>
-                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-start"></DropdownMenuItem>
+
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-blue-600 text-center">
-                        View all notifications
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </motion.div>

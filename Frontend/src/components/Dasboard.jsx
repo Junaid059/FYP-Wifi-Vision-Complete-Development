@@ -8,14 +8,54 @@ import SystemStatus from './SystemStatus';
 import Settings from './Settings';
 import HistoricalData from './HistoricalData';
 import { Activity, Map, SettingsIcon, Clock, BarChart2 } from 'lucide-react';
+import { messaging, getToken, onMessage } from '../firebaseConfig';
 
 export default function Dashboard({ user }) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('live');
+  const [fcmToken, setFcmToken] = useState(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 2000);
     return () => clearTimeout(timer);
+  }, []);
+
+  const handleNotificationRequest = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        const token = await getToken(messaging, {
+          vapidKey: import.meta.env.VITE_VAPIDKEY,
+        });
+        console.log('FCM Token:', token);
+        setFcmToken(token); // Store token in state
+      } else {
+        console.log('Push notifications permission denied');
+      }
+    } catch (error) {
+      console.error('Error getting FCM token:', error);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('Message received: ', payload);
+
+      if (payload.notification) {
+        const { title, body, image } = payload.notification;
+
+        if (document.visibilityState === 'visible') {
+          new Notification(title, {
+            body: body,
+            icon: image || '/default-icon.png',
+          });
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe(); // Cleanup listener on unmount
+    };
   }, []);
 
   return (
@@ -27,6 +67,14 @@ export default function Dashboard({ user }) {
       >
         Welcome, {user?.username}
       </motion.h1>
+      <button
+        onClick={handleNotificationRequest}
+        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+      >
+        Enable Notifications
+      </button>
+
+      {fcmToken && <p className="text-sm text-gray-600">Token: {fcmToken}</p>}
 
       {isLoading ? (
         <div className="flex justify-center items-center h-40">

@@ -11,14 +11,16 @@ import {
 import {
   Activity,
   ArrowUp,
-  ArrowDown,
   Clock,
-  Shield,
-  Database,
-  Cpu,
-  Server,
-  Network,
+  Users,
+  Eye,
+  Box,
+  Camera,
   AlertTriangle,
+  Network,
+  Server,
+  Cpu,
+  LogOut,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../ui/button';
@@ -26,7 +28,6 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { LogOut } from 'lucide-react';
 import { getAuth, signOut } from 'firebase/auth';
 
 // Dynamically import recharts components to avoid SSR issues
@@ -48,10 +49,9 @@ import {
 
 function AdminDashboard({ onLogout }) {
   const [selectedTimeRange, setSelectedTimeRange] = useState('week');
-  const [systemHealth, setSystemHealth] = useState(92);
-  const [cpuUsage, setCpuUsage] = useState(68);
-  const [memoryUsage, setMemoryUsage] = useState(45);
-  const [diskUsage, setDiskUsage] = useState(32);
+  const [totalHumanDetections, setTotalHumanDetections] = useState(1254);
+  const [totalObjectDetections, setTotalObjectDetections] = useState(3782);
+  const [totalCameraEvents, setTotalCameraEvents] = useState(5836);
   const [alertsCount, setAlertsCount] = useState(5);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
@@ -60,19 +60,20 @@ function AdminDashboard({ onLogout }) {
   // Simulate changing metrics
   useEffect(() => {
     const interval = setInterval(() => {
-      setCpuUsage((prev) =>
+      setTotalHumanDetections((prev) =>
         Math.round(
-          Math.max(30, Math.min(90, prev + (Math.random() - 0.5) * 10))
+          Math.max(1200, Math.min(1300, prev + (Math.random() - 0.5) * 10))
         )
       );
-      setMemoryUsage((prev) =>
-        Math.round(Math.max(20, Math.min(80, prev + (Math.random() - 0.5) * 8)))
+      setTotalObjectDetections((prev) =>
+        Math.round(
+          Math.max(3700, Math.min(3850, prev + (Math.random() - 0.5) * 20))
+        )
       );
-      setDiskUsage((prev) =>
-        Math.round(Math.max(20, Math.min(70, prev + (Math.random() - 0.5) * 5)))
-      );
-      setSystemHealth((prev) =>
-        Math.round(Math.max(80, Math.min(98, prev + (Math.random() - 0.5) * 3)))
+      setTotalCameraEvents((prev) =>
+        Math.round(
+          Math.max(5800, Math.min(5900, prev + (Math.random() - 0.5) * 15))
+        )
       );
       setAlertsCount(Math.floor(Math.random() * 3) + 3);
     }, 5000);
@@ -83,8 +84,8 @@ function AdminDashboard({ onLogout }) {
   const { users } = useUser();
 
   // Handle empty state (if users are undefined or null)
-  // const totalUsers = users?.length || 0;
-  // const activeUsers = users?.filter((user) => user.isActive)?.length || 0;
+  const totalUsers = users?.length || 0;
+  const activeUsers = users?.filter((user) => user.isActive)?.length || 0;
   const adminCount =
     users?.filter((user) => user.role === 'admin')?.length || 0;
   const superUserCount =
@@ -119,38 +120,6 @@ function AdminDashboard({ onLogout }) {
     { time: '16:00', cpu: 75, memory: 65, network: 55 },
     { time: '20:00', cpu: 60, memory: 60, network: 40 },
     { time: '23:59', cpu: 50, memory: 58, network: 35 },
-  ];
-
-  // Recent alerts data
-  const recentAlerts = [
-    {
-      id: 1,
-      type: 'CPU Spike',
-      severity: 'high',
-      time: '10 minutes ago',
-      message: 'Server CPU usage exceeded 90%',
-    },
-    {
-      id: 2,
-      type: 'Login Attempt',
-      severity: 'medium',
-      time: '25 minutes ago',
-      message: 'Failed login attempt from unknown IP',
-    },
-    {
-      id: 3,
-      type: 'Disk Space',
-      severity: 'low',
-      time: '1 hour ago',
-      message: 'Storage reaching capacity (75%)',
-    },
-    {
-      id: 4,
-      type: 'New User',
-      severity: 'info',
-      time: '3 hours ago',
-      message: 'New user account created',
-    },
   ];
 
   const handleRefresh = () => {
@@ -253,7 +222,7 @@ function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* System Health Overview */}
+      {/* New Statistics Cards */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -265,26 +234,31 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  System Health
+                  Total Users
                 </CardTitle>
-                <CardDescription>Overall status</CardDescription>
+                <CardDescription>Registered accounts</CardDescription>
               </div>
               <div className="p-2 bg-blue-100 rounded-full">
-                <Shield className="h-5 w-5 text-blue-600" />
+                <Users className="h-5 w-5 text-blue-600" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">
-              {systemHealth}%
-            </div>
+            <div className="text-3xl font-bold text-blue-600">{totalUsers}</div>
             <div className="mt-2 flex items-center text-sm">
               <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">3.2%</span>
-              <span className="text-gray-500 ml-1">from last week</span>
+              <span className="text-green-600 font-medium">12%</span>
+              <span className="text-gray-500 ml-1">from last month</span>
             </div>
             <div className="mt-4">
-              <Progress value={systemHealth} className="h-2" />
+              <Progress
+                value={(activeUsers / (totalUsers || 1)) * 100}
+                className="h-2"
+              />
+              <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                <span>{activeUsers} active users</span>
+                <span>{totalUsers - activeUsers} inactive</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -294,26 +268,30 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  CPU Usage
+                  Human Detection
                 </CardTitle>
-                <CardDescription>Current load</CardDescription>
+                <CardDescription>Total detections</CardDescription>
               </div>
               <div className="p-2 bg-purple-100 rounded-full">
-                <Cpu className="h-5 w-5 text-purple-600" />
+                <Eye className="h-5 w-5 text-purple-600" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              {cpuUsage}%
+              {totalHumanDetections.toLocaleString()}
             </div>
             <div className="mt-2 flex items-center text-sm">
-              <ArrowUp className="h-4 w-4 text-yellow-500 mr-1" />
-              <span className="text-yellow-600 font-medium">8.1%</span>
-              <span className="text-gray-500 ml-1">from average</span>
+              <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
+              <span className="text-green-600 font-medium">8.3%</span>
+              <span className="text-gray-500 ml-1">from last week</span>
             </div>
             <div className="mt-4">
-              <Progress value={cpuUsage} className="h-2" />
+              <Progress value={85} className="h-2" />
+              <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                <span>85% accuracy rate</span>
+                <span>24/7 monitoring</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -323,26 +301,30 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  Memory
+                  Object Detection
                 </CardTitle>
-                <CardDescription>RAM utilization</CardDescription>
+                <CardDescription>Total objects identified</CardDescription>
               </div>
               <div className="p-2 bg-green-100 rounded-full">
-                <Activity className="h-5 w-5 text-green-600" />
+                <Box className="h-5 w-5 text-green-600" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {memoryUsage}%
+              {totalObjectDetections.toLocaleString()}
             </div>
             <div className="mt-2 flex items-center text-sm">
-              <ArrowDown className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">2.3%</span>
-              <span className="text-gray-500 ml-1">from yesterday</span>
+              <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
+              <span className="text-green-600 font-medium">12.7%</span>
+              <span className="text-gray-500 ml-1">from last month</span>
             </div>
             <div className="mt-4">
-              <Progress value={memoryUsage} className="h-2" />
+              <Progress value={92} className="h-2" />
+              <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                <span>92% accuracy rate</span>
+                <span>15 object categories</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -352,26 +334,30 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  Storage
+                  Camera Events
                 </CardTitle>
-                <CardDescription>Disk usage</CardDescription>
+                <CardDescription>Total recorded events</CardDescription>
               </div>
               <div className="p-2 bg-orange-100 rounded-full">
-                <Database className="h-5 w-5 text-orange-600" />
+                <Camera className="h-5 w-5 text-orange-600" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-600">
-              {diskUsage}%
+              {totalCameraEvents.toLocaleString()}
             </div>
             <div className="mt-2 flex items-center text-sm">
               <ArrowUp className="h-4 w-4 text-orange-500 mr-1" />
-              <span className="text-orange-600 font-medium">0.8%</span>
-              <span className="text-gray-500 ml-1">from last month</span>
+              <span className="text-orange-600 font-medium">5.2%</span>
+              <span className="text-gray-500 ml-1">from yesterday</span>
             </div>
             <div className="mt-4">
-              <Progress value={diskUsage} className="h-2" />
+              <Progress value={78} className="h-2" />
+              <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                <span>78% alert rate</span>
+                <span>22% false positives</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -728,57 +714,7 @@ function AdminDashboard({ onLogout }) {
                 <Badge>{alertsCount} New</Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentAlerts.map((alert, index) => (
-                  <motion.div
-                    key={alert.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start space-x-3">
-                        <div
-                          className={`p-2 rounded-full ${
-                            alert.severity === 'high'
-                              ? 'bg-red-100'
-                              : alert.severity === 'medium'
-                              ? 'bg-yellow-100'
-                              : alert.severity === 'low'
-                              ? 'bg-blue-100'
-                              : 'bg-green-100'
-                          }`}
-                        >
-                          {getSeverityIcon(alert.severity)}
-                        </div>
-                        <div>
-                          <div className="flex items-center">
-                            <h3 className="font-medium text-sm">
-                              {alert.type}
-                            </h3>
-                            <Badge
-                              className={`ml-2 ${getSeverityColor(
-                                alert.severity
-                              )}`}
-                            >
-                              {alert.severity}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {alert.message}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {alert.time}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </CardContent>
+            <CardContent></CardContent>
           </Card>
         </motion.div>
       </div>
@@ -806,9 +742,9 @@ function AdminDashboard({ onLogout }) {
                     <Cpu className="h-5 w-5 text-blue-500 mr-2" />
                     <span className="font-medium">CPU Load</span>
                   </div>
-                  <span className="text-sm font-bold">{cpuUsage}%</span>
+                  <span className="text-sm font-bold">65%</span>
                 </div>
-                <Progress value={cpuUsage} className="h-2" />
+                <Progress value={65} className="h-2" />
                 <p className="text-xs text-gray-500">4 cores @ 2.5GHz</p>
               </div>
 
@@ -818,9 +754,9 @@ function AdminDashboard({ onLogout }) {
                     <Server className="h-5 w-5 text-purple-500 mr-2" />
                     <span className="font-medium">Memory Usage</span>
                   </div>
-                  <span className="text-sm font-bold">{memoryUsage}%</span>
+                  <span className="text-sm font-bold">45%</span>
                 </div>
-                <Progress value={memoryUsage} className="h-2" />
+                <Progress value={45} className="h-2" />
                 <p className="text-xs text-gray-500">16GB DDR4 RAM</p>
               </div>
 

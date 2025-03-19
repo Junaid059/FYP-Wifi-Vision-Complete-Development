@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
@@ -37,6 +39,9 @@ import {
   MoreHorizontal,
   RefreshCw,
   UserPlus,
+  Home,
+  MapPin,
+  Building,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import UserForm from './UserForm';
@@ -79,30 +84,62 @@ function UserList() {
     return matchesSearch && matchesRole;
   });
 
-  const handleDeleteUser = async () => {
-    if (selectedUser) {
-      await deleteUser(selectedUser.id);
-      toast.success(
-        `User ${selectedUser.username} has been deleted successfully.`
-      );
-      setIsDeleteDialogOpen(false);
-    }
-  };
-
-  const handleToggleUserStatus = (user) => {
-    if (user.id === currentUser?.id && user.isActive) {
-      toast('Cannot deactivate');
+  // Update the handleToggleUserStatus function to handle errors better
+  const handleToggleUserStatus = async (user) => {
+    if (user.id === currentUser?.uid && user.isActive) {
+      toast('Cannot deactivate your own account');
       return;
     }
 
-    updateUser(user.id, { isActive: !user.isActive });
+    try {
+      const success = await updateUser(user.id, { isActive: !user.isActive });
 
-    toast({
-      title: user.isActive ? 'User deactivated' : 'User activated',
-      description: `User ${user.username} has been ${
-        user.isActive ? 'deactivated' : 'activated'
-      } successfully.`,
-    });
+      if (success) {
+        toast({
+          title: user.isActive ? 'User deactivated' : 'User activated',
+          description: `User ${user.username} has been ${
+            user.isActive ? 'deactivated' : 'activated'
+          } successfully.`,
+        });
+      } else {
+        toast({
+          title: 'Operation failed',
+          description: 'There was an error updating the user status.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      toast({
+        title: 'Operation failed',
+        description:
+          error.message || 'There was an error updating the user status.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Similarly, update the handleDeleteUser function
+  const handleDeleteUser = async () => {
+    if (selectedUser) {
+      try {
+        const success = await deleteUser(selectedUser.id);
+
+        if (success) {
+          toast.success(
+            `User ${selectedUser.username} has been deleted successfully.`
+          );
+          setIsDeleteDialogOpen(false);
+        } else {
+          toast.error('Failed to delete user. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        toast.error(
+          error.message || 'Failed to delete user. Please try again.'
+        );
+      }
+    }
   };
 
   const handleRefresh = () => {
@@ -327,7 +364,7 @@ function UserList() {
                                   </>
                                 )}
                               </DropdownMenuItem>
-                              {currentUser?.id !== user.id && (
+                              {currentUser?.uid !== user.id && (
                                 <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => {
@@ -431,7 +468,7 @@ function UserList() {
                                   </>
                                 )}
                               </DropdownMenuItem>
-                              {currentUser?.id !== user.id && (
+                              {currentUser?.uid !== user.id && (
                                 <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => {
@@ -559,6 +596,64 @@ function UserList() {
                   </div>
                 </div>
               </div>
+
+              {/* Add address information to the user details view */}
+              {selectedUser.connection && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Address Information
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    {selectedUser.connection.street && (
+                      <div className="flex items-start gap-2 mb-2">
+                        <Home className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div>
+                          <div className="text-sm text-gray-500">
+                            Street Address
+                          </div>
+                          <div className="font-medium">
+                            {selectedUser.connection.street}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedUser.connection.city && (
+                      <div className="flex items-start gap-2 mb-2">
+                        <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div>
+                          <div className="text-sm text-gray-500">City</div>
+                          <div className="font-medium">
+                            {selectedUser.connection.city}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedUser.connection.apartment && (
+                      <div className="flex items-start gap-2">
+                        <Building className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <div>
+                          <div className="text-sm text-gray-500">
+                            Apartment/Suite
+                          </div>
+                          <div className="font-medium">
+                            {selectedUser.connection.apartment}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!selectedUser.connection.street &&
+                      !selectedUser.connection.city &&
+                      !selectedUser.connection.apartment && (
+                        <div className="text-gray-500 italic">
+                          No address information available
+                        </div>
+                      )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button

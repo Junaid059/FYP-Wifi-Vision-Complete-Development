@@ -32,6 +32,28 @@ export const UserProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Add token refresh mechanism directly in the context
+  useEffect(() => {
+    // Only set up token refresh if a user is logged in
+    if (auth.currentUser) {
+      // Force token refresh every 50 minutes (Firebase tokens expire after 1 hour)
+      const tokenRefreshInterval = setInterval(async () => {
+        try {
+          const user = auth.currentUser;
+          if (user) {
+            // Force refresh the token
+            await user.getIdToken(true);
+            console.log('Auth token refreshed');
+          }
+        } catch (error) {
+          console.error('Error refreshing token:', error);
+        }
+      }, 50 * 60 * 1000); // 50 minutes
+
+      return () => clearInterval(tokenRefreshInterval);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     try {
       const usersRef = collection(db, 'users');
@@ -202,6 +224,10 @@ export const UserProvider = ({ children }) => {
 
   const addUser = async (userData) => {
     try {
+      // Store the current user's authentication state
+      const currentAuthUser = auth.currentUser;
+
+      // Create the new user
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         userData.email,
@@ -209,25 +235,31 @@ export const UserProvider = ({ children }) => {
       );
 
       const uid = userCredential.user.uid;
-      await signOut(auth);
+
+      // IMPORTANT: Remove this line that was causing the logout
+      // await signOut(auth);
+
+      // If we have a current auth user, we need to restore their session
+      if (currentAuthUser) {
+        // Re-authenticate the current user if needed
+        try {
+          // Force update the current user to maintain admin session
+          await auth.updateCurrentUser(currentAuthUser);
+        } catch (error) {
+          console.error('Error restoring admin session:', error);
+          // Continue anyway - the user was created
+        }
+      }
+
+      // Add the user to Firestore
       await setDoc(doc(db, 'users', uid), {
         username: userData.username,
         email: userData.email,
         role: userData.role || 'user',
         isActive: userData.isActive || true,
         createdAt: new Date().toISOString(),
+        connection: userData.connection || null, // Add connection data support
       });
-
-      if (currentUser && currentUser.role === 'admin') {
-        const adminDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (adminDoc.exists()) {
-          setCurrentUser({
-            uid: currentUser.uid,
-            email: currentUser.email,
-            ...adminDoc.data(),
-          });
-        }
-      }
 
       return uid;
     } catch (error) {
@@ -243,9 +275,10 @@ export const UserProvider = ({ children }) => {
       setUsers(
         users.map((user) => (user.id === id ? { ...user, ...userData } : user))
       );
+      return true; // Return success flag
     } catch (error) {
       console.error('Error updating user:', error);
-      throw error;
+      return false; // Return failure flag
     }
   };
 
@@ -253,9 +286,10 @@ export const UserProvider = ({ children }) => {
     try {
       await deleteDoc(doc(db, 'users', id));
       setUsers(users.filter((user) => user.id !== id));
+      return true; // Return success flag
     } catch (error) {
       console.error('Error deleting user:', error);
-      throw error;
+      return false; // Return failure flag
     }
   };
 

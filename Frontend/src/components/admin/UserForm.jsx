@@ -22,7 +22,18 @@ import {
   CardDescription,
 } from '../ui/card';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Check, X, User, Mail, Key, Shield, UserCheck } from 'lucide-react';
+import {
+  Check,
+  X,
+  User,
+  Mail,
+  Key,
+  Shield,
+  UserCheck,
+  Home,
+  MapPin,
+  Building,
+} from 'lucide-react';
 
 function UserForm({ existingUser, onSuccess }) {
   const { addUser, updateUser, currentUser } = useUser();
@@ -35,6 +46,10 @@ function UserForm({ existingUser, onSuccess }) {
     role: existingUser?.role || 'user',
     isActive: existingUser?.isActive ?? true,
     adminPassword: '',
+    // Add connection fields with existing data if available
+    street: existingUser?.connection?.street || '',
+    city: existingUser?.connection?.city || '',
+    apartment: existingUser?.connection?.apartment || '',
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,27 +114,43 @@ function UserForm({ existingUser, onSuccess }) {
     setIsSubmitting(true);
     try {
       if (isEditMode) {
-        // For existing users, just update Firestore
-        await updateUser(existingUser.id, {
+        // For existing users, update Firestore with connection data
+        const success = await updateUser(existingUser.id, {
           username: formData.username,
           email: formData.email,
           role: formData.role,
           isActive: formData.isActive ?? true,
+          connection: {
+            street: formData.street,
+            city: formData.city,
+            apartment: formData.apartment,
+          },
         });
-        toast.success(`User ${formData.username} updated successfully.`);
+
+        if (success) {
+          toast.success(`User ${formData.username} updated successfully.`);
+          if (onSuccess) onSuccess();
+        } else {
+          toast.error('Failed to update user. Please try again.');
+        }
       } else {
-        // For new users, create in both Auth and Firestore
-        await addUser({
+        // For new users, create in both Auth and Firestore without connection data
+        const userId = await addUser({
           username: formData.username,
           email: formData.email,
           password: formData.password,
           role: formData.role,
           isActive: formData.isActive ?? true,
+          // No connection data for new users
         });
-        toast.success(`User ${formData.username} created successfully.`);
-      }
 
-      if (onSuccess) onSuccess();
+        if (userId) {
+          toast.success(`User ${formData.username} created successfully.`);
+          if (onSuccess) onSuccess();
+        } else {
+          toast.error('Failed to create user. Please try again.');
+        }
+      }
     } catch (error) {
       console.error('Error saving user:', error);
 
@@ -318,7 +349,7 @@ function UserForm({ existingUser, onSuccess }) {
                     }
                     disabled={
                       !canEditRoles ||
-                      (isEditMode && existingUser?.id === currentUser?.id)
+                      (isEditMode && existingUser?.id === currentUser?.uid)
                     }
                   >
                     <SelectTrigger id="role">
@@ -336,7 +367,7 @@ function UserForm({ existingUser, onSuccess }) {
                       Only administrators can change user roles
                     </p>
                   )}
-                  {isEditMode && existingUser?.id === currentUser?.id && (
+                  {isEditMode && existingUser?.id === currentUser?.uid && (
                     <p className="text-xs text-amber-500 flex items-center gap-1">
                       <Shield className="h-3 w-3" />
                       You cannot change your own role
@@ -358,14 +389,14 @@ function UserForm({ existingUser, onSuccess }) {
                         handleChange({ name: 'isActive', value: checked })
                       }
                       disabled={
-                        isEditMode && existingUser?.id === currentUser?.id
+                        isEditMode && existingUser?.id === currentUser?.uid
                       }
                     />
                     <Label htmlFor="isActive" className="cursor-pointer">
                       {formData.isActive ? 'Active' : 'Inactive'}
                     </Label>
                   </div>
-                  {isEditMode && existingUser?.id === currentUser?.id && (
+                  {isEditMode && existingUser?.id === currentUser?.uid && (
                     <p className="text-xs text-amber-500 flex items-center gap-1">
                       <Shield className="h-3 w-3" />
                       You cannot deactivate your own account
@@ -374,6 +405,59 @@ function UserForm({ existingUser, onSuccess }) {
                 </div>
               </div>
             </div>
+
+            {/* Show connection fields ONLY in edit mode */}
+            {isEditMode && (
+              <div className="space-y-4 mt-6 border-t pt-6">
+                <h3 className="text-lg font-medium">User Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="street" className="flex items-center gap-2">
+                      <Home className="h-4 w-4 text-gray-500" />
+                      Street Address
+                    </Label>
+                    <Input
+                      id="street"
+                      name="street"
+                      value={formData.street}
+                      onChange={handleChange}
+                      placeholder="Enter street address"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="city" className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-gray-500" />
+                      City
+                    </Label>
+                    <Input
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      placeholder="Enter city"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="apartment"
+                    className="flex items-center gap-2"
+                  >
+                    <Building className="h-4 w-4 text-gray-500" />
+                    Apartment/Suite
+                  </Label>
+                  <Input
+                    id="apartment"
+                    name="apartment"
+                    value={formData.apartment}
+                    onChange={handleChange}
+                    placeholder="Enter apartment or suite number (optional)"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end space-x-2 pt-4">
               {isEditMode ? (
