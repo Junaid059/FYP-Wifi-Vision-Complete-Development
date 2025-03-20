@@ -8,6 +8,7 @@ import HomePage from './components/pages/HomePage';
 import AdminPage from './components/pages/AdminPage';
 import AdminUsersPage from './components/pages/AdminUsersPage';
 import AdminNewUserPage from './components/pages/AdminNewUserPage';
+import UserDashboardPage from './components/pages/UserDashboardPage';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from './firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -50,9 +51,13 @@ function AuthGuard({ children, requiredRole = null }) {
         navigate('/login', { replace: true });
       } else if (requiredRole && currentUser.role !== requiredRole) {
         // User doesn't have required role, redirect based on their role
-        navigate(currentUser.role === 'admin' ? '/admin' : '/dashboard', {
-          replace: true,
-        });
+        if (currentUser.role === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (currentUser.role === 'super') {
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/user-dashboard', { replace: true });
+        }
       }
     }
   }, [currentUser, isLoading, navigate, requiredRole, hasChecked]);
@@ -104,12 +109,22 @@ function App() {
           {/* Login page */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* User dashboard - protected for any authenticated user */}
+          {/* Super user dashboard - protected for super role */}
           <Route
             path="/dashboard"
             element={
-              <AuthGuard>
+              <AuthGuard requiredRole="super">
                 <HomePage />
+              </AuthGuard>
+            }
+          />
+
+          {/* Regular user dashboard - protected for user role */}
+          <Route
+            path="/user-dashboard"
+            element={
+              <AuthGuard requiredRole="user">
+                <UserDashboardPage />
               </AuthGuard>
             }
           />

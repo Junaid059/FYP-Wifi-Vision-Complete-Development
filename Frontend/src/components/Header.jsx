@@ -15,7 +15,6 @@ import { Router, useNavigate } from 'react-router-dom';
 function Header({ isLoggedIn, user, onLogout }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const [fcmToken, setFcmToken] = useState(null);
 
   const handleLogout = () => {
     if (onLogout) {
@@ -23,33 +22,6 @@ function Header({ isLoggedIn, user, onLogout }) {
       navigate('/login');
     }
   };
-
-  const handleNotificationRequest = async () => {
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        const token = import.meta.env.VITE_VAPIDKEY; // Replace this with actual FCM token retrieval
-        console.log('FCM Token:', token);
-        setFcmToken(token);
-      } else {
-        console.log('Push notifications permission denied');
-      }
-    } catch (error) {
-      console.error('Error getting FCM token:', error);
-    }
-  };
-
-  // const goToAdmin = () => {
-  //   if (user && user.role === 'admin') {
-  //     navigate('/admin');
-  //   } else {
-  //     toast({
-  //       title: 'Access Denied',
-  //       description: "You don't have permission to access the admin panel.",
-  //       variant: 'destructive',
-  //     });
-  //   }
-  // };
 
   return (
     <motion.header
@@ -81,30 +53,14 @@ function Header({ isLoggedIn, user, onLogout }) {
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                >
-                  <Button
-                    onClick={handleNotificationRequest}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-                  >
-                    Enable Notifications
-                  </Button>
-                </motion.div>
+                ></motion.div>
 
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      {/* <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 relative"
-                      >
-                        <Bell className="h-5 w-5" />
-                        <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-                      </Button> */}
-                    </DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="flex flex-col items-start"></DropdownMenuItem>
@@ -131,9 +87,7 @@ function Header({ isLoggedIn, user, onLogout }) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem>Profile</DropdownMenuItem>
-                      {/* <DropdownMenuItem onClick={goToAdmin}>
-                        Admin Panel
-                      </DropdownMenuItem> */}
+
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-red-500"

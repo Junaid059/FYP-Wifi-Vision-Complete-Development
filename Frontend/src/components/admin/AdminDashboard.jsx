@@ -29,6 +29,14 @@ import { Progress } from '../ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { getAuth, signOut } from 'firebase/auth';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  getFirestore,
+} from 'firebase/firestore';
+import { app } from '../../firebaseConfig';
 
 // Dynamically import recharts components to avoid SSR issues
 import {
@@ -49,36 +57,94 @@ import {
 
 function AdminDashboard({ onLogout }) {
   const [selectedTimeRange, setSelectedTimeRange] = useState('week');
-  const [totalHumanDetections, setTotalHumanDetections] = useState(1254);
-  const [totalObjectDetections, setTotalObjectDetections] = useState(3782);
-  const [totalCameraEvents, setTotalCameraEvents] = useState(5836);
-  const [alertsCount, setAlertsCount] = useState(5);
+  const [totalHumanDetections, setTotalHumanDetections] = useState(0);
+  const [totalObjectDetections, setTotalObjectDetections] = useState(0);
+  const [totalCameraEvents, setTotalCameraEvents] = useState(0);
+  const [detectionAccuracy, setDetectionAccuracy] = useState({
+    human: 0,
+    object: 0,
+  });
+  const [alertsCount, setAlertsCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const auth = getAuth();
+  const db = getFirestore(app);
 
-  // Simulate changing metrics
+  // Fetch dashboard data from Firebase
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTotalHumanDetections((prev) =>
-        Math.round(
-          Math.max(1200, Math.min(1300, prev + (Math.random() - 0.5) * 10))
-        )
-      );
-      setTotalObjectDetections((prev) =>
-        Math.round(
-          Math.max(3700, Math.min(3850, prev + (Math.random() - 0.5) * 20))
-        )
-      );
-      setTotalCameraEvents((prev) =>
-        Math.round(
-          Math.max(5800, Math.min(5900, prev + (Math.random() - 0.5) * 15))
-        )
-      );
-      setAlertsCount(Math.floor(Math.random() * 3) + 3);
-    }, 5000);
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch human detections
+        const humanDetectionsRef = collection(db, 'humanDetections');
+        const humanSnapshot = await getDocs(humanDetectionsRef);
+        setTotalHumanDetections(humanSnapshot.size);
 
-    return () => clearInterval(interval);
+        // Calculate human detection accuracy if available
+        const humanAccuracy = humanSnapshot.docs.reduce((acc, doc) => {
+          const data = doc.data();
+          return data.accuracy ? acc + data.accuracy : acc;
+        }, 0);
+
+        // Fetch object detections
+        const objectDetectionsRef = collection(db, 'objectDetections');
+        const objectSnapshot = await getDocs(objectDetectionsRef);
+        setTotalObjectDetections(objectSnapshot.size);
+
+        // Calculate object detection accuracy if available
+        const objectAccuracy = objectSnapshot.docs.reduce((acc, doc) => {
+          const data = doc.data();
+          return data.accuracy ? acc + data.accuracy : acc;
+        }, 0);
+
+        // Set accuracy percentages
+        setDetectionAccuracy({
+          human:
+            humanSnapshot.size > 0
+              ? Math.round((humanAccuracy / humanSnapshot.size) * 100)
+              : 85,
+          object:
+            objectSnapshot.size > 0
+              ? Math.round((objectAccuracy / objectSnapshot.size) * 100)
+              : 92,
+        });
+
+        // Fetch camera events
+        const cameraEventsRef = collection(db, 'cameraEvents');
+        const eventsSnapshot = await getDocs(cameraEventsRef);
+        setTotalCameraEvents(eventsSnapshot.size);
+
+        // Fetch alerts
+        const alertsRef = collection(db, 'alerts');
+        const alertsQuery = query(alertsRef, where('read', '==', false));
+        const alertsSnapshot = await getDocs(alertsQuery);
+        setAlertsCount(alertsSnapshot.size);
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setError(error.message);
+        setIsLoading(false);
+
+        // Fallback to default values if Firebase fetch fails
+        setTotalHumanDetections(0);
+        setTotalObjectDetections(0);
+        setTotalCameraEvents(0);
+        setDetectionAccuracy({ human: 85, object: 92 });
+        setAlertsCount(0);
+      }
+    };
+
+    fetchDashboardData();
+
+    // Set up a refresh interval (every 5 minutes)
+    const refreshInterval = setInterval(() => {
+      fetchDashboardData();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const { users } = useUser();
@@ -122,11 +188,37 @@ function AdminDashboard({ onLogout }) {
     { time: '23:59', cpu: 50, memory: 58, network: 35 },
   ];
 
-  const handleRefresh = () => {
+  // Update the handleRefresh function to actually refresh the data
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 800);
+    try {
+      // Fetch human detections
+      const humanDetectionsRef = collection(db, 'humanDetections');
+      const humanSnapshot = await getDocs(humanDetectionsRef);
+      setTotalHumanDetections(humanSnapshot.size);
+
+      // Fetch object detections
+      const objectDetectionsRef = collection(db, 'objectDetections');
+      const objectSnapshot = await getDocs(objectDetectionsRef);
+      setTotalObjectDetections(objectSnapshot.size);
+
+      // Fetch camera events
+      const cameraEventsRef = collection(db, 'cameraEvents');
+      const eventsSnapshot = await getDocs(cameraEventsRef);
+      setTotalCameraEvents(eventsSnapshot.size);
+
+      // Fetch alerts
+      const alertsRef = collection(db, 'alerts');
+      const alertsQuery = query(alertsRef, where('read', '==', false));
+      const alertsSnapshot = await getDocs(alertsQuery);
+      setAlertsCount(alertsSnapshot.size);
+    } catch (error) {
+      console.error('Error refreshing dashboard data:', error);
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 800);
+    }
   };
 
   const handleLogout = async () => {
@@ -142,36 +234,6 @@ function AdminDashboard({ onLogout }) {
     }
   };
 
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case 'high':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'info':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getSeverityIcon = (severity) => {
-    switch (severity) {
-      case 'high':
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'medium':
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'low':
-        return <AlertTriangle className="h-4 w-4 text-blue-500" />;
-      case 'info':
-        return <Activity className="h-4 w-4 text-green-500" />;
-      default:
-        return <AlertTriangle className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -181,7 +243,7 @@ function AdminDashboard({ onLogout }) {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Welcome to Admin Dashboard
+            Admin Dashboard
           </h1>
           <p className="text-gray-500 mt-1">
             Monitor your system and manage users from one place
@@ -222,7 +284,17 @@ function AdminDashboard({ onLogout }) {
         </div>
       </div>
 
-      {/* New Statistics Cards */}
+      {error && (
+        <div
+          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mt-4"
+          role="alert"
+        >
+          <strong className="font-bold">Error:</strong>
+          <span className="block sm:inline"> {error}</span>
+        </div>
+      )}
+
+      {/* Statistics Cards */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -247,8 +319,8 @@ function AdminDashboard({ onLogout }) {
             <div className="text-3xl font-bold text-blue-600">{totalUsers}</div>
             <div className="mt-2 flex items-center text-sm">
               <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">12%</span>
-              <span className="text-gray-500 ml-1">from last month</span>
+              <span className="text-green-600 font-medium">Real-time</span>
+              <span className="text-gray-500 ml-1">data from Firebase</span>
             </div>
             <div className="mt-4">
               <Progress
@@ -279,17 +351,25 @@ function AdminDashboard({ onLogout }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              {totalHumanDetections.toLocaleString()}
+              {isLoading ? (
+                <div className="h-8 w-24 bg-purple-100 animate-pulse rounded"></div>
+              ) : (
+                totalHumanDetections.toLocaleString()
+              )}
             </div>
             <div className="mt-2 flex items-center text-sm">
-              <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">8.3%</span>
-              <span className="text-gray-500 ml-1">from last week</span>
+              {!isLoading && (
+                <>
+                  <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
+                  <span className="text-green-600 font-medium">Real-time</span>
+                  <span className="text-gray-500 ml-1">data from Firebase</span>
+                </>
+              )}
             </div>
             <div className="mt-4">
-              <Progress value={85} className="h-2" />
+              <Progress value={detectionAccuracy.human} className="h-2" />
               <div className="mt-1 text-xs text-gray-500 flex justify-between">
-                <span>85% accuracy rate</span>
+                <span>{detectionAccuracy.human}% accuracy rate</span>
                 <span>24/7 monitoring</span>
               </div>
             </div>
@@ -312,17 +392,25 @@ function AdminDashboard({ onLogout }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {totalObjectDetections.toLocaleString()}
+              {isLoading ? (
+                <div className="h-8 w-24 bg-green-100 animate-pulse rounded"></div>
+              ) : (
+                totalObjectDetections.toLocaleString()
+              )}
             </div>
             <div className="mt-2 flex items-center text-sm">
-              <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">12.7%</span>
-              <span className="text-gray-500 ml-1">from last month</span>
+              {!isLoading && (
+                <>
+                  <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
+                  <span className="text-green-600 font-medium">Real-time</span>
+                  <span className="text-gray-500 ml-1">data from Firebase</span>
+                </>
+              )}
             </div>
             <div className="mt-4">
-              <Progress value={92} className="h-2" />
+              <Progress value={detectionAccuracy.object} className="h-2" />
               <div className="mt-1 text-xs text-gray-500 flex justify-between">
-                <span>92% accuracy rate</span>
+                <span>{detectionAccuracy.object}% accuracy rate</span>
                 <span>15 object categories</span>
               </div>
             </div>
@@ -345,12 +433,20 @@ function AdminDashboard({ onLogout }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-600">
-              {totalCameraEvents.toLocaleString()}
+              {isLoading ? (
+                <div className="h-8 w-24 bg-orange-100 animate-pulse rounded"></div>
+              ) : (
+                totalCameraEvents.toLocaleString()
+              )}
             </div>
             <div className="mt-2 flex items-center text-sm">
-              <ArrowUp className="h-4 w-4 text-orange-500 mr-1" />
-              <span className="text-orange-600 font-medium">5.2%</span>
-              <span className="text-gray-500 ml-1">from yesterday</span>
+              {!isLoading && (
+                <>
+                  <ArrowUp className="h-4 w-4 text-orange-500 mr-1" />
+                  <span className="text-orange-600 font-medium">Real-time</span>
+                  <span className="text-gray-500 ml-1">data from Firebase</span>
+                </>
+              )}
             </div>
             <div className="mt-4">
               <Progress value={78} className="h-2" />

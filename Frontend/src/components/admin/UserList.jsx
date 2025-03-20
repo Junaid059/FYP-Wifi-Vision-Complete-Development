@@ -73,6 +73,7 @@ function UserList() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState('table');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -119,10 +120,14 @@ function UserList() {
     }
   };
 
-  // Similarly, update the handleDeleteUser function
+  // Updated handleDeleteUser function to delete from Firebase
   const handleDeleteUser = async () => {
     if (selectedUser) {
       try {
+        setIsDeleting(true);
+
+        // Use the deleteUser function from your context
+        // Your context already handles both Firestore deletion and state updates
         const success = await deleteUser(selectedUser.id);
 
         if (success) {
@@ -138,6 +143,8 @@ function UserList() {
         toast.error(
           error.message || 'Failed to delete user. Please try again.'
         );
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -732,9 +739,17 @@ function UserList() {
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={handleDeleteUser}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete User
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteUser}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  {isDeleting ? 'Deleting...' : 'Delete User'}
                 </Button>
               </DialogFooter>
             </div>

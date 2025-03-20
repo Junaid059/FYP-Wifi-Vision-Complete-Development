@@ -103,4 +103,4 @@ try {
   console.error('Error setting up auth persistence:', error);
 }
 
-export { db, auth, messaging, getToken, onMessage };
+export { app, db, auth, messaging, getToken, onMessage };

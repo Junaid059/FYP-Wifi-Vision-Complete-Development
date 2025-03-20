@@ -180,6 +180,8 @@ function UserForm({ existingUser, onSuccess }) {
     switch (role) {
       case 'admin':
         return 'bg-gradient-to-br from-red-500 to-pink-600 text-white';
+      case 'super':
+        return 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white';
       case 'user':
         return 'bg-gradient-to-br from-green-500 to-teal-600 text-white';
       default:
@@ -214,7 +216,7 @@ function UserForm({ existingUser, onSuccess }) {
                   <AvatarFallback className={getAvatarColor(formData.role)}>
                     {formData.username
                       ? formData.username.substring(0, 2).toUpperCase()
-                      : 'NU'}
+                      : 'WIVI'}
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -357,6 +359,7 @@ function UserForm({ existingUser, onSuccess }) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="super">Super User</SelectItem>
                       <SelectItem value="user">Regular User</SelectItem>
                     </SelectContent>
                   </Select>
