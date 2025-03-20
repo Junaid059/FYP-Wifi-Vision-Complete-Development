@@ -791,12 +791,12 @@ const LandingPage = () => {
                 </div>
               </div>
 
-              <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-cyan-900/20">
+              {/* <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-cyan-900/20">
                 <h3 className="text-2xl font-bold mb-6 text-white">
                   Frequently Asked Questions
                 </h3>
                 <CollapsibleFAQ faqs={faqItems} />
-              </div>
+              </div> */}
             </motion.div>
           </div>
         </div>
