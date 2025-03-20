@@ -1,5 +1,7 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { UserProvider, useUser } from './components/contexts/UserContext';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from 'sonner';
@@ -8,10 +10,11 @@ import HomePage from './components/pages/HomePage';
 import AdminPage from './components/pages/AdminPage';
 import AdminUsersPage from './components/pages/AdminUsersPage';
 import AdminNewUserPage from './components/pages/AdminNewUserPage';
+import AdminUserDataPage from './components/pages/AdminUserDataPage';
 import UserDashboardPage from './components/pages/UserDashboardPage';
+import LandingPage from './components/Home/LandingPage';
 import { collection, getDocs } from 'firebase/firestore';
-import { db, auth } from './firebaseConfig';
-import { signOut } from 'firebase/auth';
+import { db } from './firebaseConfig';
 
 // ✅ Check Firebase Connection
 function FirebaseConnectionCheck() {
@@ -84,27 +87,16 @@ function AuthGuard({ children, requiredRole = null }) {
 }
 
 function App() {
-  // Always sign out when the app first loads
-  useEffect(() => {
-    const clearAuthOnStartup = async () => {
-      try {
-        await signOut(auth);
-        console.log('Auth state cleared on application startup');
-      } catch (error) {
-        console.error('Error clearing auth state:', error);
-      }
-    };
-
-    clearAuthOnStartup();
-  }, []);
+  // Remove the automatic sign out on app load to allow the landing page to be viewed
+  // without forcing a login
 
   return (
     <UserProvider>
       <ThemeProvider defaultTheme="light" attribute="class">
         <FirebaseConnectionCheck />
         <Routes>
-          {/* Default route always redirects to login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* Default route now shows the landing page */}
+          <Route path="/" element={<LandingPage />} />
 
           {/* Login page */}
           <Route path="/login" element={<LoginPage />} />
@@ -151,6 +143,24 @@ function App() {
             element={
               <AuthGuard requiredRole="admin">
                 <AdminNewUserPage />
+              </AuthGuard>
+            }
+          />
+          {/* Updated route path to match the URL you're trying to access */}
+          <Route
+            path="/admin/users/data"
+            element={
+              <AuthGuard requiredRole="admin">
+                <AdminUserDataPage />
+              </AuthGuard>
+            }
+          />
+          {/* Keep the original route as well for backward compatibility */}
+          <Route
+            path="/admin/user/data"
+            element={
+              <AuthGuard requiredRole="admin">
+                <AdminUserDataPage />
               </AuthGuard>
             }
           />

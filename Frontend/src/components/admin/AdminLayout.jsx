@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -5,7 +7,6 @@ import { useUser } from '../contexts/UserContext';
 import {
   Shield,
   Users,
-  Settings,
   LogOut,
   Home,
   BarChart2,
@@ -13,8 +14,8 @@ import {
   Search,
   HelpCircle,
   UserPlus,
-  Database,
   Menu,
+  FileText,
 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -140,6 +141,17 @@ function AdminLayout({ children }) {
               >
                 <UserPlus className="h-5 w-5 mr-2" />
                 {isSidebarOpen && <span>Create User</span>}
+              </Button>
+
+              <Button
+                variant="ghost"
+                className={`w-full justify-${
+                  isSidebarOpen ? 'start' : 'center'
+                } px-3 py-2`}
+                onClick={() => navigate('/admin/users/data')}
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                {isSidebarOpen && <span>User Data</span>}
               </Button>
             </div>
 

@@ -126,7 +126,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 flex flex-col md:flex-row">
       {/* Left side - Branding */}
-      <div className="hidden md:flex md:w-1/2 p-12 bg-gradient-to-br from-blue-600 to-blue-800 text-white flex-col justify-between relative overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 p-12 bg-gradient-to-br from-blue-600 bg-gray-900 text-white flex-col justify-between relative overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-full h-full">
