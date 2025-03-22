@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -9,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Lottie from 'lottie-react';
 import {
   Activity,
   Users,
@@ -19,8 +21,30 @@ import {
   Home,
 } from 'lucide-react';
 
+// Import Lottie animations
+// These are placeholders - you'll need to replace these with your actual Lottie JSON files
+import bedAnimation from '../animations/bed.json';
+import fallAnimation from '../animations/fall.json';
+import pickupAnimation from '../animations/pickup.json';
+import runAnimation from '../animations/run.json';
+import sitdownAnimation from '../animations/sitdown.json';
+import standupAnimation from '../animations/standup.json';
+import walkAnimation from '../animations/walk.json';
+
+// Animation mapping object
+const activityAnimations = {
+  bed: bedAnimation,
+  fall: fallAnimation,
+  pickup: pickupAnimation,
+  run: runAnimation,
+  sitdown: sitdownAnimation, 
+  standup: standupAnimation,
+  walk: walkAnimation
+};
+
 // Floating animation components
 export function FloatingCard({ children, className, delay = 0 }) {
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -78,78 +102,278 @@ export function PulsingElement({ children, className }) {
   );
 }
 
-// Simulated data for the live feed
-const generateRandomPositions = (count) => {
-  const positions = [];
-  for (let i = 0; i < count; i++) {
-    positions.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      strength: Math.random(),
-      moving: Math.random() > 0.5,
-    });
+// Define activities that should have static positions
+const staticActivities = ['sitdown', 'pickup'];
+const minorMovementActivities = ['walk', 'standup'];
+const majorMovementActivities = ['run', 'fall'];
+
+// Store the last position to prevent rapid changes
+let lastPosition = null;
+
+// Modified position generation with activity-based stability
+const generatePositionFromSignal = (rssi, noise, activity) => {
+  // If we have a last position and this is a static activity, return the same position
+  if (lastPosition && staticActivities.includes(activity)) {
+    return lastPosition;
   }
-  return positions;
+
+  // RSSI typically ranges from -30 dBm (very close) to -90 dBm (very far)
+  const MIN_RSSI = -90;
+  const MAX_RSSI = -30;
+  
+  // Normalize RSSI to a range between 0 and 1
+  const normalizedRssi = Math.max(0, Math.min(1, 
+    (rssi - MIN_RSSI) / (MAX_RSSI - MIN_RSSI)));
+  
+  // Calculate distance from center
+  const maxDistance = 0.5;
+  const distance = maxDistance * (1 - normalizedRssi);
+  
+  // Add reduced randomness based on noise and activity
+  const noiseLevel = Math.min(1, Math.max(0, (noise + 100) / 50));
+  
+  // Adjust randomness based on activity type
+  let randomFactor = 0;
+  if (majorMovementActivities.includes(activity)) {
+    randomFactor = noiseLevel * 0.15; // Less random for major movement activities
+  } else if (minorMovementActivities.includes(activity)) {
+    randomFactor = noiseLevel * 0.05; // Very slight movement for minor movement activities
+  } else {
+    randomFactor = noiseLevel * 0.02; // Almost no randomness for other activities
+  }
+  
+  // If we have a last position, make changes more gradual
+  if (lastPosition) {
+    // Calculate new position with minimal movement
+    const newX = lastPosition.x + (Math.random() * 2 - 1) * randomFactor * 5;
+    const newY = lastPosition.y + (Math.random() * 2 - 1) * randomFactor * 5;
+    
+    const newPosition = {
+      id: 0,
+      x: Math.max(0, Math.min(100, newX)),
+      y: Math.max(0, Math.min(100, newY)),
+      strength: normalizedRssi,
+      moving: !staticActivities.includes(activity) && Math.random() > 0.7 // Less likely to be moving for stability
+    };
+    
+    lastPosition = newPosition;
+    return newPosition;
+  }
+  
+  // Generate a position from scratch if there's no last position
+  const angle = Math.random() * 2 * Math.PI;
+  const randomDistance = distance * (1 + (Math.random() * 2 - 1) * randomFactor);
+  
+  // Convert to cartesian coordinates
+  const x = 50 + randomDistance * Math.cos(angle) * 100;
+  const y = 50 + randomDistance * Math.sin(angle) * 100;
+  
+  const newPosition = {
+    id: 0,
+    x: Math.max(0, Math.min(100, x)),
+    y: Math.max(0, Math.min(100, y)),
+    strength: normalizedRssi,
+    moving: !staticActivities.includes(activity) && Math.random() > 0.7
+  };
+  
+  lastPosition = newPosition;
+  return newPosition;
 };
 
+// Activity Recognition Component
+function ActivityRecognition({ activityData }) {
+  const { prediction, confidence, rssi, noise, probabilities } = activityData || {};
+  
+  if (!prediction) {
+    return (
+      <Card className="bg-gradient-to-br from-white-500/20 to-white-600/10 border-purple-500/30 h-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-black-100">
+            Activity Recognition
+          </CardTitle>
+          <div className="p-1.5 bg-purple-500/20 rounded-full">
+            <Activity className="h-4 w-4 text-black-400" />
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center h-64">
+          <p>Waiting for activity data...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Get the right animation based on prediction
+  const currentAnimation = activityAnimations[prediction] || activityAnimations.standup;
+
+  return (
+    <Card className="bg-gradient-to-br from-white-500/20 to-white-600/10 border-purple-500/30 h-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-black-100">
+          Activity Recognition
+        </CardTitle>
+        <div className="p-1.5 bg-purple-500/20 rounded-full">
+          <Activity className="h-4 w-4 text-black-400" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center">
+          {/* Lottie Animation */}
+          <div className="w-40 h-40">
+            <Lottie animationData={currentAnimation} loop={true} />
+          </div>
+          
+          {/* Activity Label */}
+          <h3 className="text-xl font-bold capitalize text-black mt-2">
+            {prediction}
+          </h3>
+          
+          {/* Confidence */}
+          <div className="mt-2 w-full">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-black">Confidence</span>
+              <span className="text-xs font-bold text-black">
+                {(confidence * 100).toFixed(2)}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-700/20 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-purple-400"
+                initial={{ width: '0%' }}
+                animate={{ width: `${confidence * 100}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+          </div>
+          
+          {/* Signal Strength */}
+          <div className="mt-3 flex justify-between w-full items-center">
+            <div className="flex items-center gap-1">
+              <Wifi className="h-3 w-3 text-black" />
+              <span className="text-xs text-black">RSSI: {rssi} dBm</span>
+            </div>
+            <span className="text-xs text-black">SNR: {rssi - noise} dB</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function LiveMonitoring() {
-  const [positions, setPositions] = useState(generateRandomPositions(7));
+  const [positions, setPositions] = useState([]);
   const [time, setTime] = useState(new Date());
   const [activeTab, setActiveTab] = useState('live');
+  const [activityData, setActivityData] = useState(null);
+  const [lastPositionUpdateTime, setLastPositionUpdateTime] = useState(null);
 
-  // Update positions every 3 seconds
+  // Update positions when new activity data comes in
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPositions((prev) =>
-        prev.map((p) => ({
-          ...p,
-          x: p.moving
-            ? Math.max(0, Math.min(100, p.x + (Math.random() * 6 - 3)))
-            : p.x,
-          y: p.moving
-            ? Math.max(0, Math.min(100, p.y + (Math.random() * 6 - 3)))
-            : p.y,
-          strength: Math.max(
-            0.3,
-            Math.min(1, p.strength + (Math.random() * 0.2 - 0.1))
-          ),
-          moving: Math.random() > 0.3 ? p.moving : !p.moving,
-        }))
-      );
-    }, 3000);
+    if (activityData && activityData.rssi && activityData.noise) {
+      // Only update position every 3 seconds to maintain stability
+      const shouldUpdatePosition = !lastPositionUpdateTime || 
+        (new Date().getTime() - lastPositionUpdateTime.getTime()) > 3000;
+      
+      if (shouldUpdatePosition) {
+        const newPosition = generatePositionFromSignal(
+          activityData.rssi, 
+          activityData.noise,
+          activityData.prediction
+        );
+        setPositions([newPosition]);
+        setLastPositionUpdateTime(new Date());
+      }
+    }
+  }, [activityData]);
 
-    // Update time every second
+  // SSE connection for activity data
+  useEffect(() => {
+    let eventSource = null;
+    
+    const connectToStream = () => {
+      console.log('Connecting to SSE stream...');
+      
+      // Close any existing connection
+      if (eventSource) {
+        eventSource.close();
+      }
+      
+      // Create a new EventSource connection
+      eventSource = new EventSource('http://localhost:5000/stream');
+      
+      // Connection opened
+      eventSource.onopen = () => {
+        console.log('SSE connection established');
+      };
+      
+      // Message received
+      eventSource.onmessage = (event) => {
+        try {
+          console.log('Raw SSE data:', event.data);
+          const data = JSON.parse(event.data);
+          console.log('Parsed activity data:', data);
+          setActivityData(data);
+        } catch (err) {
+          console.error('Error parsing SSE data:', err);
+        }
+      };
+      
+      // Error handling
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        eventSource.close();
+        
+        // Try to reconnect after a delay
+        setTimeout(() => {
+          console.log('Attempting to reconnect...');
+          connectToStream();
+        }, 3000);
+      };
+    };
+    
+    // Initial connection
+    connectToStream();
+    
+    // Cleanup on component unmount
+    return () => {
+      if (eventSource) {
+        console.log('Closing SSE connection');
+        eventSource.close();
+      }
+    };
+  }, []);
+
+  // Update time every second
+  useEffect(() => {
     const timeInterval = setInterval(() => {
       setTime(new Date());
     }, 1000);
 
     return () => {
-      clearInterval(interval);
       clearInterval(timeInterval);
     };
   }, []);
 
   return (
-    <div className="space-y-6 p-6 bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen text-white">
+    <div className="space-y-6 p-6 min-h-screen text-black">
+      {/* Existing header */}
       <FloatingCard>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/20 rounded-lg">
-              <Wifi className="h-6 w-6 text-blue-400" />
+              <Wifi className="h-6 w-6 text-black-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-white">
+              <h2 className="text-2xl font-semibold text-black">
                 Live Monitoring
               </h2>
-              <p className="text-blue-300 text-sm">
+              <p className="text-black-300 text-sm">
                 {time.toLocaleTimeString()} - Active Monitoring
               </p>
             </div>
           </div>
 
           <Select defaultValue="home">
-            <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+            <SelectTrigger className="w-[180px] bg-black/10 border-black/20 text-black">
               <SelectValue placeholder="Select location" />
             </SelectTrigger>
             <SelectContent>
@@ -161,108 +385,106 @@ export default function LiveMonitoring() {
         </div>
       </FloatingCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Top row of cards - add Activity Recognition */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <FloatingCard delay={0.4}>
+          <ActivityRecognition activityData={activityData} />
+        </FloatingCard>
         <FloatingCard delay={0.1}>
-          <FloatingElement className="h-full">
-            <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-blue-500/30 h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-100">
-                  Active Devices
-                </CardTitle>
-                <div className="p-1.5 bg-blue-500/20 rounded-full">
-                  <Activity className="h-4 w-4 text-blue-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-2">
-                  <div className="text-3xl font-bold text-white">12</div>
-                  <div className="text-xl font-bold text-white/60">/15</div>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
-                  <p className="text-xs text-red-300">3 devices offline</p>
-                </div>
-                <div className="mt-4 h-1 w-full bg-blue-900/50 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-blue-400"
-                    initial={{ width: '0%' }}
-                    animate={{ width: '80%' }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </FloatingElement>
+          <Card className="bg-gradient-to-br from-white-500/20 to-white-600/10 border-blue-500/30 h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-black-100">
+                Active Devices
+              </CardTitle>
+              <div className="p-1.5 bg-blue-500/20 rounded-full">
+                <Activity className="h-4 w-4 text-blacl-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-2">
+                <div className="text-3xl font-bold text-black">1</div>
+                <div className="text-xl font-bold text-black/60">/3</div>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-900 animate-pulse"></div>
+                <p className="text-xs text-red-300">2 devices offline</p>
+              </div>
+              <div className="mt-4 h-1 w-full bg-blue-900/50 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-blue-400"
+                  initial={{ width: '0%' }}
+                  animate={{ width: '80%' }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </FloatingCard>
 
         <FloatingCard delay={0.2}>
-          <FloatingElement className="h-full">
-            <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30 h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-green-100">
-                  Detected Persons
-                </CardTitle>
-                <div className="p-1.5 bg-green-500/20 rounded-full">
-                  <Users className="h-4 w-4 text-green-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-white">7</div>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></div>
-                  <p className="text-xs text-amber-300">
-                    2 in restricted areas
-                  </p>
-                </div>
-                <div className="mt-4 grid grid-cols-7 gap-1">
-                  {[...Array(7)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className={`h-6 rounded-full ${
-                        i < 5 ? 'bg-green-400/80' : 'bg-amber-400/80'
-                      }`}
-                      initial={{ height: 0 }}
-                      animate={{ height: 24 }}
-                      transition={{ delay: i * 0.1, duration: 0.5 }}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </FloatingElement>
+          <Card className="bg-gradient-to-br from-white-500/20 to-white-600/10 border-green-500/30 h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-black-100">
+                Detected Persons
+              </CardTitle>
+              <div className="p-1.5 bg-green-500/20 rounded-full">
+                <Users className="h-4 w-4 text-black-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-black">1</div>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></div>
+                <p className="text-xs text-black">
+                  0 in restricted areas
+                </p>
+              </div>
+              <div className="mt-4 grid grid-cols-7 gap-1">
+                {[...Array(7)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className={`h-6 rounded-full ${
+                      i < 5 ? 'bg-blue-400/80' : 'bg-amber-400/80'
+                    }`}
+                    initial={{ height: 0 }}
+                    animate={{ height: 24 }}
+                    transition={{ delay: i * 0.1, duration: 0.5 }}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </FloatingCard>
 
         <FloatingCard delay={0.3}>
-          <FloatingElement className="h-full">
-            <Card className="bg-gradient-to-br from-amber-500/20 to-amber-600/10 border-amber-500/30 h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-amber-100">
-                  Detected Objects
-                </CardTitle>
-                <div className="p-1.5 bg-amber-500/20 rounded-full">
-                  <Package className="h-4 w-4 text-amber-400" />
+          <Card className="bg-gradient-to-br from-white-500/20 to-white-600/10 border-amber-500/30 h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-black">
+                Detected Objects
+              </CardTitle>
+              <div className="p-1.5 bg-amber-500/20 rounded-full">
+                <Package className="h-4 w-4 text-black" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-black">0</div>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse"></div>
+                <p className="text-xs text-black">0 unidentified</p>
+              </div>
+              <div className="mt-4 flex items-center gap-1">
+                <div className="flex-1 h-1 bg-amber-900/50 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-amber-400"
+                    initial={{ width: '0%' }}
+                    animate={{ width: '78%' }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                  />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-white">23</div>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse"></div>
-                  <p className="text-xs text-purple-300">5 unidentified</p>
-                </div>
-                <div className="mt-4 flex items-center gap-1">
-                  <div className="flex-1 h-1 bg-amber-900/50 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-amber-400"
-                      initial={{ width: '0%' }}
-                      animate={{ width: '78%' }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
-                    />
-                  </div>
-                  <span className="text-xs text-amber-300">78%</span>
-                </div>
-              </CardContent>
-            </Card>
-          </FloatingElement>
+                <span className="text-xs text-amber-300">0%</span>
+              </div>
+            </CardContent>
+          </Card>
         </FloatingCard>
       </div>
 
@@ -400,6 +622,79 @@ export default function LiveMonitoring() {
                         <AlertTriangle className="h-3 w-3" />
                         <span>Restricted Area</span>
                       </motion.div>
+
+                      {/* Activity Information Panel */}
+                      {activityData && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.3 }}
+                          className="absolute top-4 right-4 bg-slate-800/90 backdrop-blur-sm border border-purple-500/30 rounded-lg p-3 w-64 shadow-lg"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Activity className="h-4 w-4 text-purple-400" />
+                            <h3 className="text-sm font-medium text-white">Current Activity</h3>
+                          </div>
+                          
+                          {/* Add Lottie animation in the panel */}
+                          <div className="flex justify-center mb-2">
+                            <div className="w-24 h-24">
+                              <Lottie 
+                                animationData={activityAnimations[activityData.prediction] || activityAnimations.standup} 
+                                loop={true} 
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="text-xs text-slate-300">
+                            <div className="flex justify-between mb-1">
+                              <span>Activity:</span>
+                              <span className="font-bold capitalize">{activityData.prediction}</span>
+                            </div>
+                            
+                            {/* Confidence bar */}
+                            <div className="mb-2">
+                              <div className="flex justify-between items-center mb-1">
+                                <span>Confidence:</span>
+                                <span>{(activityData.confidence * 100).toFixed(1)}%</span>
+                              </div>
+                              <div className="h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden">
+                                <motion.div
+                                  className="h-full bg-purple-400"
+                                  initial={{ width: '0%' }}
+                                  animate={{ width: `${activityData.confidence * 100}%` }}
+                                  transition={{ duration: 0.5 }}
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Signal metrics */}
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              <div className="bg-slate-700/30 p-1 rounded">
+                                <div className="flex items-center gap-1">
+                                  <Wifi className="h-3 w-3 text-blue-400" />
+                                  <span>RSSI</span>
+                                </div>
+                                <div className="text-right font-mono">{activityData.rssi} dBm</div>
+                              </div>
+                              <div className="bg-slate-700/30 p-1 rounded">
+                                <div className="flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3 text-amber-400" />
+                                  <span>Noise</span>
+                                </div>
+                                <div className="text-right font-mono">{activityData.noise} dBm</div>
+                              </div>
+                              <div className="bg-slate-700/30 p-1 rounded col-span-2">
+                                <div className="flex items-center gap-1">
+                                  <Activity className="h-3 w-3 text-green-400" />
+                                  <span>SNR</span>
+                                </div>
+                                <div className="text-right font-mono">{activityData.rssi - activityData.noise} dB</div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
 
