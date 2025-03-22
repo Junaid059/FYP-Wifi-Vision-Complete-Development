@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "950727151617",
+    "project_id": "wivi-app",
+    "storage_bucket": "wivi-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:950727151617:android:3adcc23a25bb47214cb000",
+        "android_client_info": {
+          "package_name": "com.example.wi_vi_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbhaQlO8v5fT4fhDCSwF9oevIP-jHMuO4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
