@@ -208,14 +208,14 @@ function AdminLayout({ children }) {
               )}
             </div>
 
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               onClick={handleLogout}
               className="text-gray-500 hover:text-red-600"
             >
               <LogOut className="h-4 w-4" />
-            </Button>
+            </Button> */}
           </div>
         </div>
       </div>
@@ -247,7 +247,7 @@ function AdminLayout({ children }) {
                 <HelpCircle className="h-5 w-5 text-gray-600" />
               </Button>
 
-              <Button
+              {/* <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/')}
@@ -255,7 +255,17 @@ function AdminLayout({ children }) {
               >
                 <Home className="mr-2 h-4 w-4" />
                 Return to App
+              </Button> */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-500"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                  Logout
               </Button>
+
             </div>
           </div>
         </header>

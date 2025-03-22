@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios'; 
 import { useUser } from '../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,6 +22,7 @@ import {
   Server,
   Cpu,
   LogOut,
+  Axis3DIcon,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../ui/button';
@@ -71,6 +73,8 @@ function AdminDashboard({ onLogout }) {
   const navigate = useNavigate();
   const auth = getAuth();
   const db = getFirestore(app);
+  const [connectiondata,setConnectionData]=useState(0);
+  const [connectionRequestData,setConnectionRequestData]=useState(0);
 
   // Fetch dashboard data from Firebase
   useEffect(() => {
@@ -234,6 +238,25 @@ function AdminDashboard({ onLogout }) {
     }
   };
 
+  useEffect(()=>{
+    const fetchConnections=async()=>{
+      const response=await axios.get("http://localhost:3000/admin/get-connections-count");
+      if(response.status===200){
+        setConnectionData(response.data);
+        console.log(connectiondata);
+      }
+    }
+    const fetchConnectionsRequest=async()=>{
+      const response=await axios.get("http://localhost:3000/admin/get-connections-request");
+      if(response.status===200){
+        setConnectionRequestData(response.data);
+        console.log(connectionRequestData);
+      }
+    }
+    fetchConnections();
+    fetchConnectionsRequest();
+  },[]);
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -272,7 +295,7 @@ function AdminDashboard({ onLogout }) {
             Refresh
           </Button>
 
-          <Button
+          {/* <Button
             variant="outline"
             size="sm"
             className="text-red-500"
@@ -280,7 +303,7 @@ function AdminDashboard({ onLogout }) {
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -317,11 +340,11 @@ function AdminDashboard({ onLogout }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">{totalUsers}</div>
-            <div className="mt-2 flex items-center text-sm">
+            {/* <div className="mt-2 flex items-center text-sm">
               <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
               <span className="text-green-600 font-medium">Real-time</span>
               <span className="text-gray-500 ml-1">data from Firebase</span>
-            </div>
+            </div> */}
             <div className="mt-4">
               <Progress
                 value={(activeUsers / (totalUsers || 1)) * 100}
@@ -340,9 +363,9 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  Human Detection
+                  Total Connections
                 </CardTitle>
-                <CardDescription>Total detections</CardDescription>
+                <CardDescription>Total Connections Count</CardDescription>
               </div>
               <div className="p-2 bg-purple-100 rounded-full">
                 <Eye className="h-5 w-5 text-purple-600" />
@@ -354,10 +377,10 @@ function AdminDashboard({ onLogout }) {
               {isLoading ? (
                 <div className="h-8 w-24 bg-purple-100 animate-pulse rounded"></div>
               ) : (
-                totalHumanDetections.toLocaleString()
+                JSON.stringify(connectiondata.connectionscount)
               )}
             </div>
-            <div className="mt-2 flex items-center text-sm">
+            {/* <div className="mt-2 flex items-center text-sm">
               {!isLoading && (
                 <>
                   <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
@@ -365,12 +388,12 @@ function AdminDashboard({ onLogout }) {
                   <span className="text-gray-500 ml-1">data from Firebase</span>
                 </>
               )}
-            </div>
+            </div> */}
             <div className="mt-4">
               <Progress value={detectionAccuracy.human} className="h-2" />
               <div className="mt-1 text-xs text-gray-500 flex justify-between">
                 <span>{detectionAccuracy.human}% accuracy rate</span>
-                <span>24/7 monitoring</span>
+                {/* <span>24/7 monitoring</span> */}
               </div>
             </div>
           </CardContent>
@@ -381,9 +404,9 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  Object Detection
+                  Total Connection Requests
                 </CardTitle>
-                <CardDescription>Total objects identified</CardDescription>
+                <CardDescription>Total Connection Requests</CardDescription>
               </div>
               <div className="p-2 bg-green-100 rounded-full">
                 <Box className="h-5 w-5 text-green-600" />
@@ -395,10 +418,10 @@ function AdminDashboard({ onLogout }) {
               {isLoading ? (
                 <div className="h-8 w-24 bg-green-100 animate-pulse rounded"></div>
               ) : (
-                totalObjectDetections.toLocaleString()
+                JSON.stringify(connectionRequestData.connectionrequestscount)
               )}
             </div>
-            <div className="mt-2 flex items-center text-sm">
+            {/* <div className="mt-2 flex items-center text-sm">
               {!isLoading && (
                 <>
                   <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
@@ -406,12 +429,12 @@ function AdminDashboard({ onLogout }) {
                   <span className="text-gray-500 ml-1">data from Firebase</span>
                 </>
               )}
-            </div>
+            </div> */}
             <div className="mt-4">
               <Progress value={detectionAccuracy.object} className="h-2" />
               <div className="mt-1 text-xs text-gray-500 flex justify-between">
-                <span>{detectionAccuracy.object}% accuracy rate</span>
-                <span>15 object categories</span>
+                <span>{detectionAccuracy.object}% increase from last month</span>
+                {/* <span>15 object categories</span> */}
               </div>
             </div>
           </CardContent>
@@ -422,7 +445,7 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                  Camera Events
+                   Events
                 </CardTitle>
                 <CardDescription>Total recorded events</CardDescription>
               </div>

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { Button } from '../ui/button';
+import axios from 'axios';
 import AIModelVisualization from './ModelVisualizer';
 import { CollapsibleFAQ } from './CollapsibleFaqs';
 import {
@@ -133,6 +134,20 @@ const LandingPage = () => {
         timestamp: serverTimestamp(),
       });
 
+      const response = await axios.post('http://localhost:3000/admin/add-connection-request', 
+        {
+          username: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          message: formData.message,          
+        });
+
+        if(response.status===200){
+          console.log("Saved to DB");
+        }
+
+
       console.log('Form submitted with ID:', docRef.id);
       setSubmitSuccess(true);
 
@@ -164,14 +179,14 @@ const LandingPage = () => {
   // FAQ data
   const faqItems = [
     {
-      question: 'How does WifiGuard work without cameras?',
+      question: 'How does WifiVision work without cameras?',
       answer:
-        'WifiGuard uses advanced AI algorithms to analyze WiFi signal patterns that are disrupted by human presence, eliminating the need for traditional cameras while maintaining privacy.',
+        'WifiVision uses advanced AI algorithms to analyze WiFi signal patterns that are disrupted by human presence, eliminating the need for traditional cameras while maintaining privacy.',
     },
     {
       question: 'Is installation complicated?',
       answer:
-        'Not at all! WifiGuard is designed for easy setup. Simply plug in the devices, connect to your WiFi network, and follow the app instructions to complete the setup.',
+        'Not at all! WifiVision is designed for easy setup. Simply plug in the devices, connect to your WiFi network, and follow the app instructions to complete the setup.',
     },
     {
       question: 'Can I access monitoring remotely?',
@@ -181,7 +196,7 @@ const LandingPage = () => {
     {
       question: 'How accurate is the detection?',
       answer:
-        'WifiGuard achieves over 95% accuracy in detecting human presence and movement, with continuous improvements via AI learning algorithms.',
+        'WifiVision achieves over 95% accuracy in detecting human presence and movement, with continuous improvements via AI learning algorithms.',
     },
     {
       question: 'Is my data secure?',
@@ -192,19 +207,19 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col text-gray-100 bg-gray-900 overflow-hidden">
-      {/* Header */}
-      <div className="absolute top-0 right-0 z-20 p-4">
-        <Button
-          onClick={navigateToLogin}
-          className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2 px-6 rounded-full font-medium text-center shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/40 transform hover:-translate-y-1 transition-all duration-300"
-        >
-          Already a member? Login
-        </Button>
-      </div>
 
       <header className="bg-gray-900 text-white py-4">
-        <div className="container mx-auto px-4">
-          <h1 className="text-2xl font-bold">WIVI</h1>
+        <div className="container mx-auto px-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold hover:cursor" href="#WiVi">WIVI</h1>
+          <nav className="space-x-6">
+            <a href="#about" className="hover:text-cyan-400 transition-colors">About</a>
+            <a href="#pricing" className="hover:text-cyan-400 transition-colors">Pricing</a>
+            <a href="#features" className="hover:text-cyan-400 transition-colors">Features</a>
+            <a href="#contact" className="hover:text-cyan-400 transition-colors">Contact</a>
+            <Button onClick={navigateToLogin} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2 px-6 rounded-full font-medium text-center shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/40 transform hover:-translate-y-1 transition-all duration-300">
+              Already a member? Login
+            </Button>
+          </nav>
         </div>
       </header>
 
@@ -273,7 +288,7 @@ const LandingPage = () => {
                 </motion.a>
               </div>
             </motion.div>
-            <motion.div
+            {/* <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1, delay: 0.5 }}
@@ -290,7 +305,7 @@ const LandingPage = () => {
               >
                 <AIModelVisualization />
               </Suspense>
-            </motion.div>
+            </motion.div> */}
           </div>
         </div>
 
@@ -572,7 +587,7 @@ const LandingPage = () => {
                 Contact Us
               </h2>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Have questions about WifiGuard? We're here to help. Fill out the
+                Have questions about WifiVision? We're here to help. Fill out the
                 form below and our team will get back to you shortly.
               </p>
             </motion.div>
@@ -748,7 +763,7 @@ const LandingPage = () => {
                       <h4 className="text-lg font-semibold text-white">
                         Email
                       </h4>
-                      <p className="text-gray-300">info@wifiguard.com</p>
+                      <p className="text-gray-300">info@wifivision.com</p>
                       <p className="text-gray-400 text-sm mt-1">
                         We'll respond as soon as possible
                       </p>
