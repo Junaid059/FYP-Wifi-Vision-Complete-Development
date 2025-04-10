@@ -1,8 +1,7 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { UserProvider, useUser } from './components/contexts/UserContext';
+//import { UserProvider as UserRoleProvider } from './components/contexts/UserRoleContext'; // Import the UserRoleProvider
 import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from 'sonner';
 import LoginPage from './components/pages/LoginPage';
@@ -87,11 +86,10 @@ function AuthGuard({ children, requiredRole = null }) {
 }
 
 function App() {
-  // Remove the automatic sign out on app load to allow the landing page to be viewed
-  // without forcing a login
-
   return (
     <UserProvider>
+      {/* Add the UserRoleProvider here */}
+      {/* <UserRoleProvider> */}
       <ThemeProvider defaultTheme="light" attribute="class">
         <FirebaseConnectionCheck />
         <Routes>
@@ -167,6 +165,7 @@ function App() {
         </Routes>
         <Toaster />
       </ThemeProvider>
+      {/* </UserRoleProvider> */}
     </UserProvider>
   );
 }

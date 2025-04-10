@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -154,30 +152,6 @@ function AdminLayout({ children }) {
                 {isSidebarOpen && <span>User Data</span>}
               </Button>
             </div>
-
-            {/* <div className="border-t border-gray-200 pt-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">
-                {isSidebarOpen ? 'System' : ''}
-              </p>
-              <Button
-                variant="ghost"
-                className={`w-full justify-${
-                  isSidebarOpen ? 'start' : 'center'
-                } px-3 py-2`}
-              >
-                <Settings className="h-5 w-5 mr-2" />
-                {isSidebarOpen && <span>Settings</span>}
-              </Button>
-              <Button
-                variant="ghost"
-                className={`w-full justify-${
-                  isSidebarOpen ? 'start' : 'center'
-                } px-3 py-2`}
-              >
-                <Database className="h-5 w-5 mr-2" />
-                {isSidebarOpen && <span>Database</span>}
-              </Button>
-            </div> */}
           </div>
         </div>
 
@@ -263,9 +237,8 @@ function AdminLayout({ children }) {
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                Logout
               </Button>
-
             </div>
           </div>
         </header>
