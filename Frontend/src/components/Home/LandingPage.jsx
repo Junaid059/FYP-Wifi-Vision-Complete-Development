@@ -134,19 +134,20 @@ const LandingPage = () => {
         timestamp: serverTimestamp(),
       });
 
-      const response = await axios.post('http://localhost:3000/admin/add-connection-request', 
+      const response = await axios.post(
+        'http://localhost:3000/admin/add-connection-request',
         {
           username: formData.name,
           email: formData.email,
           phone: formData.phone,
           company: formData.company,
-          message: formData.message,          
-        });
-
-        if(response.status===200){
-          console.log("Saved to DB");
+          message: formData.message,
         }
+      );
 
+      if (response.status === 200) {
+        console.log('Saved to DB');
+      }
 
       console.log('Form submitted with ID:', docRef.id);
       setSubmitSuccess(true);
@@ -207,16 +208,37 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col text-gray-100 bg-gray-900 overflow-hidden">
-
       <header className="bg-gray-900 text-white py-4">
         <div className="container mx-auto px-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold hover:cursor" href="#WiVi">WIVI</h1>
+          <h1 className="text-2xl font-bold hover:cursor" href="#WiVi">
+            WIVI
+          </h1>
           <nav className="space-x-6">
-            <a href="#about" className="hover:text-cyan-400 transition-colors">About</a>
-            <a href="#pricing" className="hover:text-cyan-400 transition-colors">Pricing</a>
-            <a href="#features" className="hover:text-cyan-400 transition-colors">Features</a>
-            <a href="#contact" className="hover:text-cyan-400 transition-colors">Contact</a>
-            <Button onClick={navigateToLogin} className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2 px-6 rounded-full font-medium text-center shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/40 transform hover:-translate-y-1 transition-all duration-300">
+            <a href="#about" className="hover:text-cyan-400 transition-colors">
+              About
+            </a>
+            <a
+              href="#pricing"
+              className="hover:text-cyan-400 transition-colors"
+            >
+              Pricing
+            </a>
+            <a
+              href="#features"
+              className="hover:text-cyan-400 transition-colors"
+            >
+              Features
+            </a>
+            <a
+              href="#contact"
+              className="hover:text-cyan-400 transition-colors"
+            >
+              Contact
+            </a>
+            <Button
+              onClick={navigateToLogin}
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2 px-6 rounded-full font-medium text-center shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/40 transform hover:-translate-y-1 transition-all duration-300"
+            >
               Already a member? Login
             </Button>
           </nav>
@@ -231,24 +253,97 @@ const LandingPage = () => {
         {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-gray-800"></div>
 
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full bg-cyan-500/5"
-              style={{
-                width: `${Math.random() * 300 + 50}px`,
-                height: `${Math.random() * 300 + 50}px`,
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                animation: `float ${Math.random() * 20 + 10}s ease-in-out ${
-                  Math.random() * 5
-                }s infinite`,
-              }}
-            />
-          ))}
+        {/* Wave animation */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute w-full h-full">
+            {/* First wave */}
+            <div className="absolute top-[20%] w-[200%] left-[-50%]">
+              <svg
+                viewBox="0 0 1200 120"
+                preserveAspectRatio="none"
+                className="w-full h-[200px] rotate-[3deg]"
+              >
+                <path
+                  d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  className="fill-gray-800"
+                  style={{
+                    animation:
+                      'wave 15s cubic-bezier(0.36, 0.45, 0.63, 0.53) infinite',
+                  }}
+                ></path>
+              </svg>
+            </div>
+
+            {/* Second wave */}
+            <div className="absolute top-[35%] w-[200%] left-[-50%]">
+              <svg
+                viewBox="0 0 1200 120"
+                preserveAspectRatio="none"
+                className="w-full h-[180px] rotate-[-2deg]"
+              >
+                <path
+                  d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  className="fill-gray-900"
+                  style={{
+                    animation:
+                      'wave 12s cubic-bezier(0.36, 0.45, 0.63, 0.53) -3s infinite reverse',
+                  }}
+                ></path>
+              </svg>
+            </div>
+
+            {/* Third wave */}
+            <div className="absolute top-[50%] w-[200%] left-[-50%]">
+              <svg
+                viewBox="0 0 1200 120"
+                preserveAspectRatio="none"
+                className="w-full h-[220px] rotate-[1deg]"
+              >
+                <path
+                  d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  className="fill-blue-900/50"
+                  style={{
+                    animation:
+                      'wave 18s cubic-bezier(0.36, 0.45, 0.63, 0.53) -5s infinite',
+                  }}
+                ></path>
+              </svg>
+            </div>
+
+            {/* Fourth wave - added for more movement */}
+            <div className="absolute top-[60%] w-[200%] left-[-50%]">
+              <svg
+                viewBox="0 0 1200 120"
+                preserveAspectRatio="none"
+                className="w-full h-[150px] rotate-[-1deg]"
+              >
+                <path
+                  d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  className="fill-cyan-950/60"
+                  style={{
+                    animation:
+                      'wave 10s cubic-bezier(0.36, 0.45, 0.63, 0.53) -2s infinite reverse',
+                  }}
+                ></path>
+              </svg>
+            </div>
+          </div>
         </div>
+
+        {/* CSS Animation for waves */}
+        <style jsx global>{`
+          @keyframes wave {
+            0% {
+              transform: translateX(0%);
+            }
+            50% {
+              transform: translateX(-30%);
+            }
+            100% {
+              transform: translateX(0%);
+            }
+          }
+        `}</style>
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -288,24 +383,6 @@ const LandingPage = () => {
                 </motion.a>
               </div>
             </motion.div>
-            {/* <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.5 }}
-              className="h-[500px] rounded-2xl overflow-hidden shadow-2xl shadow-cyan-500/10 bg-gray-800 flex items-center justify-center"
-            >
-              <Suspense
-                fallback={
-                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                    <div className="text-white text-xl">
-                      Loading 3D Visualization...
-                    </div>
-                  </div>
-                }
-              >
-                <AIModelVisualization />
-              </Suspense>
-            </motion.div> */}
           </div>
         </div>
 
@@ -587,8 +664,8 @@ const LandingPage = () => {
                 Contact Us
               </h2>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Have questions about WifiVision? We're here to help. Fill out the
-                form below and our team will get back to you shortly.
+                Have questions about WifiVision? We're here to help. Fill out
+                the form below and our team will get back to you shortly.
               </p>
             </motion.div>
           </div>

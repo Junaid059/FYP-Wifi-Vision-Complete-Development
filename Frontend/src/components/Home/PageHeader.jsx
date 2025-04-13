@@ -31,7 +31,7 @@ export function PageHeader({ activeSection }) {
               <Wifi className="h-5 w-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              WifiGuard
+              WIVI
             </h1>
           </div>
 

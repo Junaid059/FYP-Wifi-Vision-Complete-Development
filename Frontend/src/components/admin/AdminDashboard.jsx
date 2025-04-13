@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios'; 
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,21 +11,20 @@ import {
   CardDescription,
 } from '../ui/card';
 import {
-  Activity,
   ArrowUp,
+  Bell,
   Clock,
   Users,
   Eye,
   Box,
   Camera,
-  AlertTriangle,
   Network,
   Server,
   Cpu,
-  LogOut,
-  Axis3DIcon,
+  Activity,
+  RefreshCw,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
@@ -37,8 +37,15 @@ import {
   query,
   where,
   getFirestore,
+  onSnapshot,
+  orderBy,
 } from 'firebase/firestore';
 import { app } from '../../firebaseConfig';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 // Dynamically import recharts components to avoid SSR issues
 import {
@@ -73,8 +80,24 @@ function AdminDashboard({ onLogout }) {
   const navigate = useNavigate();
   const auth = getAuth();
   const db = getFirestore(app);
-  const [connectiondata,setConnectionData]=useState(0);
-  const [connectionRequestData,setConnectionRequestData]=useState(0);
+  const [connectiondata, setConnectionData] = useState(0);
+  const [connectionRequestData, setConnectionRequestData] = useState(0);
+  const [alerts, setAlerts] = useState([]);
+
+  // Server status metrics with simulated live data
+  const [serverMetrics, setServerMetrics] = useState({
+    cpu: 65,
+    memory: 45,
+    network: 45,
+    disk: 72,
+    temperature: 48,
+    uptime: 45,
+  });
+
+  // Historical server metrics for charts
+  const [serverHistory, setServerHistory] = useState([]);
+  const [selectedMetric, setSelectedMetric] = useState('cpu');
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(true);
 
   // Fetch dashboard data from Firebase
   useEffect(() => {
@@ -181,17 +204,6 @@ function AdminDashboard({ onLogout }) {
     { name: 'Sun', users: 1, logins: 5, actions: 15 },
   ];
 
-  // System performance data
-  const performanceData = [
-    { time: '00:00', cpu: 45, memory: 60, network: 30 },
-    { time: '04:00', cpu: 30, memory: 55, network: 25 },
-    { time: '08:00', cpu: 65, memory: 70, network: 60 },
-    { time: '12:00', cpu: 85, memory: 75, network: 70 },
-    { time: '16:00', cpu: 75, memory: 65, network: 55 },
-    { time: '20:00', cpu: 60, memory: 60, network: 40 },
-    { time: '23:59', cpu: 50, memory: 58, network: 35 },
-  ];
-
   // Update the handleRefresh function to actually refresh the data
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -216,6 +228,21 @@ function AdminDashboard({ onLogout }) {
       const alertsQuery = query(alertsRef, where('read', '==', false));
       const alertsSnapshot = await getDocs(alertsQuery);
       setAlertsCount(alertsSnapshot.size);
+
+      // Fetch connections
+      const connectionsRef = collection(db, 'connections');
+      const connectionsSnapshot = await getDocs(connectionsRef);
+      setConnectionData({ connectionscount: connectionsSnapshot.size });
+
+      // Fetch connection requests
+      const connectionRequestsRef = collection(db, 'connectionRequests');
+      const connectionRequestsSnapshot = await getDocs(connectionRequestsRef);
+      setConnectionRequestData({
+        connectionrequestscount: connectionRequestsSnapshot.size,
+      });
+
+      // Update server metrics
+      updateServerMetrics();
     } catch (error) {
       console.error('Error refreshing dashboard data:', error);
     } finally {
@@ -238,24 +265,159 @@ function AdminDashboard({ onLogout }) {
     }
   };
 
-  useEffect(()=>{
-    const fetchConnections=async()=>{
-      const response=await axios.get("http://localhost:3000/admin/get-connections-count");
-      if(response.status===200){
-        setConnectionData(response.data);
-        console.log(connectiondata);
+  useEffect(() => {
+    const fetchConnectionsData = async () => {
+      try {
+        // Fetch connections
+        const connectionsRef = collection(db, 'connections');
+        const connectionsSnapshot = await getDocs(connectionsRef);
+        setConnectionData({ connectionscount: connectionsSnapshot.size });
+
+        // Fetch connection requests
+        const connectionRequestsRef = collection(db, 'connectionRequests');
+        const connectionRequestsSnapshot = await getDocs(connectionRequestsRef);
+        setConnectionRequestData({
+          connectionrequestscount: connectionRequestsSnapshot.size,
+        });
+      } catch (error) {
+        console.error('Error fetching connection data:', error);
       }
-    }
-    const fetchConnectionsRequest=async()=>{
-      const response=await axios.get("http://localhost:3000/admin/get-connections-request");
-      if(response.status===200){
-        setConnectionRequestData(response.data);
-        console.log(connectionRequestData);
+    };
+
+    fetchConnectionsData();
+
+    // Set up a refresh interval (every 5 minutes)
+    const refreshInterval = setInterval(() => {
+      fetchConnectionsData();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const alertsRef = collection(db, 'alerts');
+        const alertsQuery = query(
+          alertsRef,
+          where('read', '==', false),
+          orderBy('timestamp', 'desc')
+        );
+
+        // Set up a real-time listener for alerts
+        const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
+          const alertsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setAlerts(alertsData);
+          setAlertsCount(alertsData.length);
+        });
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Error fetching alerts:', error);
       }
+    };
+
+    fetchAlerts();
+  }, []);
+
+  // Function to update server metrics with simulated live data
+  const updateServerMetrics = useCallback(() => {
+    // Generate random fluctuations for metrics
+    const randomFluctuation = (min, max) => {
+      return Math.random() * (max - min) + min;
+    };
+
+    setServerMetrics((prev) => {
+      // Create new values with small random changes
+      const newCpu = Math.min(
+        100,
+        Math.max(0, prev.cpu + randomFluctuation(-5, 5))
+      );
+      const newMemory = Math.min(
+        100,
+        Math.max(0, prev.memory + randomFluctuation(-3, 3))
+      );
+      const newNetwork = Math.min(
+        100,
+        Math.max(0, prev.network + randomFluctuation(-8, 8))
+      );
+      const newDisk = Math.min(
+        100,
+        Math.max(0, prev.disk + randomFluctuation(-1, 1))
+      );
+      const newTemp = Math.min(
+        90,
+        Math.max(35, prev.temperature + randomFluctuation(-2, 2))
+      );
+
+      // Add new data point to history
+      const timestamp = new Date().toLocaleTimeString();
+      setServerHistory((history) => {
+        const newHistory = [
+          ...history,
+          {
+            timestamp,
+            cpu: newCpu,
+            memory: newMemory,
+            network: newNetwork,
+            disk: newDisk,
+            temperature: newTemp,
+          },
+        ];
+
+        // Keep only the last 20 data points
+        if (newHistory.length > 20) {
+          return newHistory.slice(newHistory.length - 20);
+        }
+        return newHistory;
+      });
+
+      return {
+        cpu: Math.round(newCpu),
+        memory: Math.round(newMemory),
+        network: Math.round(newNetwork),
+        disk: Math.round(newDisk),
+        temperature: Math.round(newTemp),
+        uptime: prev.uptime,
+      };
+    });
+  }, []);
+
+  // Set up auto-refresh for server metrics
+  useEffect(() => {
+    let intervalId;
+
+    if (isAutoRefreshing) {
+      // Initial update
+      updateServerMetrics();
+
+      // Set interval for updates
+      intervalId = setInterval(() => {
+        updateServerMetrics();
+      }, 3000); // Update every 3 seconds
     }
-    fetchConnections();
-    fetchConnectionsRequest();
-  },[]);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isAutoRefreshing, updateServerMetrics]);
+
+  // Get color based on metric value
+  const getMetricColor = (value) => {
+    if (value < 50) return 'text-green-500';
+    if (value < 80) return 'text-amber-500';
+    return 'text-red-500';
+  };
+
+  // Get progress color based on metric value
+  const getProgressColor = (value) => {
+    if (value < 50) return 'bg-green-500';
+    if (value < 80) return 'bg-amber-500';
+    return 'bg-red-500';
+  };
 
   return (
     <div className="space-y-8">
@@ -274,6 +436,116 @@ function AdminDashboard({ onLogout }) {
         </motion.div>
 
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  {alertsCount > 0 && (
+                    <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-[10px] font-medium text-white flex items-center justify-center">
+                      {alertsCount > 9 ? '9+' : alertsCount}
+                    </span>
+                  )}
+                  <span className="sr-only">Notifications</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <h3 className="font-medium">Notifications</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const alertsRef = collection(db, 'alerts');
+                        const alertsSnapshot = await getDocs(alertsRef);
+
+                        // Update all alerts to read=true
+                        const batch = db.batch();
+                        alertsSnapshot.docs.forEach((doc) => {
+                          batch.update(doc.ref, { read: true });
+                        });
+
+                        await batch.commit();
+                        setAlertsCount(0);
+                      } catch (error) {
+                        console.error('Error marking alerts as read:', error);
+                      }
+                    }}
+                  >
+                    Mark all as read
+                  </Button>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {isLoading ? (
+                    <div className="p-4 text-center">Loading alerts...</div>
+                  ) : alertsCount === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      No new alerts
+                    </div>
+                  ) : (
+                    <div className="p-2">
+                      {/* We'll fetch and display actual alerts here */}
+                      <div className="p-2 hover:bg-gray-50 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <div className="h-2 w-2 mt-2 rounded-full bg-red-500"></div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              Security Alert
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Unusual login detected from new location
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              2 minutes ago
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-2 hover:bg-gray-50 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <div className="h-2 w-2 mt-2 rounded-full bg-amber-500"></div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              System Warning
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              High CPU usage detected on main server
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              15 minutes ago
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-2 hover:bg-gray-50 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <div className="h-2 w-2 mt-2 rounded-full bg-blue-500"></div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              New User Registration
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              User John Doe has registered
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              1 hour ago
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-2 border-t">
+                  <Button variant="outline" size="sm" className="w-full">
+                    View all notifications
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <Tabs value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
             <TabsList className="bg-gray-100">
               <TabsTrigger value="day">Day</TabsTrigger>
@@ -294,16 +566,6 @@ function AdminDashboard({ onLogout }) {
             />
             Refresh
           </Button>
-
-          {/* <Button
-            variant="outline"
-            size="sm"
-            className="text-red-500"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button> */}
         </div>
       </div>
 
@@ -380,7 +642,7 @@ function AdminDashboard({ onLogout }) {
                 JSON.stringify(connectiondata.connectionscount)
               )}
             </div>
-            {/* <div className="mt-2 flex items-center text-sm">
+            <div className="mt-2 flex items-center text-sm">
               {!isLoading && (
                 <>
                   <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
@@ -388,7 +650,7 @@ function AdminDashboard({ onLogout }) {
                   <span className="text-gray-500 ml-1">data from Firebase</span>
                 </>
               )}
-            </div> */}
+            </div>
             <div className="mt-4">
               <Progress value={detectionAccuracy.human} className="h-2" />
               <div className="mt-1 text-xs text-gray-500 flex justify-between">
@@ -421,7 +683,7 @@ function AdminDashboard({ onLogout }) {
                 JSON.stringify(connectionRequestData.connectionrequestscount)
               )}
             </div>
-            {/* <div className="mt-2 flex items-center text-sm">
+            <div className="mt-2 flex items-center text-sm">
               {!isLoading && (
                 <>
                   <ArrowUp className="h-4 w-4 text-green-500 mr-1" />
@@ -429,11 +691,13 @@ function AdminDashboard({ onLogout }) {
                   <span className="text-gray-500 ml-1">data from Firebase</span>
                 </>
               )}
-            </div> */}
+            </div>
             <div className="mt-4">
               <Progress value={detectionAccuracy.object} className="h-2" />
               <div className="mt-1 text-xs text-gray-500 flex justify-between">
-                <span>{detectionAccuracy.object}% increase from last month</span>
+                <span>
+                  {detectionAccuracy.object}% increase from last month
+                </span>
                 {/* <span>15 object categories</span> */}
               </div>
             </div>
@@ -445,7 +709,7 @@ function AdminDashboard({ onLogout }) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-800">
-                   Events
+                  Events
                 </CardTitle>
                 <CardDescription>Total recorded events</CardDescription>
               </div>
@@ -665,7 +929,7 @@ function AdminDashboard({ onLogout }) {
         </Card>
       </motion.div>
 
-      {/* System Performance */}
+      {/* Server Status - Enhanced Live Monitoring */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -673,60 +937,364 @@ function AdminDashboard({ onLogout }) {
       >
         <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xl font-semibold">
-              System Performance
-            </CardTitle>
-            <CardDescription>24-hour monitoring</CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-xl font-semibold">
+                  Server Status
+                </CardTitle>
+                <CardDescription>
+                  Live monitoring of server resources
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={isAutoRefreshing ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setIsAutoRefreshing(!isAutoRefreshing)}
+                  className="gap-2"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      isAutoRefreshing ? 'animate-spin' : ''
+                    }`}
+                  />
+                  {isAutoRefreshing ? 'Live' : 'Paused'}
+                </Button>
+                <Tabs
+                  value={selectedMetric}
+                  onValueChange={setSelectedMetric}
+                  className="hidden md:block"
+                >
+                  <TabsList className="bg-gray-100">
+                    <TabsTrigger value="cpu">CPU</TabsTrigger>
+                    <TabsTrigger value="memory">Memory</TabsTrigger>
+                    <TabsTrigger value="network">Network</TabsTrigger>
+                    <TabsTrigger value="disk">Disk</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={performanceData}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    opacity={0.1}
-                  />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                      border: 'none',
-                    }}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="cpu"
-                    name="CPU Usage"
-                    stroke="#ef4444"
-                    strokeWidth={2}
-                    activeDot={{ r: 8 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="memory"
-                    name="Memory Usage"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    activeDot={{ r: 8 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="network"
-                    name="Network Traffic"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    activeDot={{ r: 8 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Live Metrics */}
+              <div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <Cpu
+                          className={`h-5 w-5 ${getMetricColor(
+                            serverMetrics.cpu
+                          )} mr-2`}
+                        />
+                        <span className="font-medium">CPU Load</span>
+                      </div>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={serverMetrics.cpu}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className={`text-lg font-bold ${getMetricColor(
+                            serverMetrics.cpu
+                          )}`}
+                        >
+                          {serverMetrics.cpu}%
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                    <Progress
+                      value={serverMetrics.cpu}
+                      className="h-2"
+                      indicatorClassName={getProgressColor(serverMetrics.cpu)}
+                    />
+                    <div className="mt-2 text-xs text-gray-500 flex justify-between">
+                      <span>4 cores @ 2.5GHz</span>
+                      <span className={getMetricColor(serverMetrics.cpu)}>
+                        {serverMetrics.cpu < 50
+                          ? 'Normal'
+                          : serverMetrics.cpu < 80
+                          ? 'Moderate'
+                          : 'High'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <Server
+                          className={`h-5 w-5 ${getMetricColor(
+                            serverMetrics.memory
+                          )} mr-2`}
+                        />
+                        <span className="font-medium">Memory</span>
+                      </div>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={serverMetrics.memory}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className={`text-lg font-bold ${getMetricColor(
+                            serverMetrics.memory
+                          )}`}
+                        >
+                          {serverMetrics.memory}%
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                    <Progress
+                      value={serverMetrics.memory}
+                      className="h-2"
+                      indicatorClassName={getProgressColor(
+                        serverMetrics.memory
+                      )}
+                    />
+                    <div className="mt-2 text-xs text-gray-500 flex justify-between">
+                      <span>16GB DDR4 RAM</span>
+                      <span className={getMetricColor(serverMetrics.memory)}>
+                        {serverMetrics.memory < 50
+                          ? 'Normal'
+                          : serverMetrics.memory < 80
+                          ? 'Moderate'
+                          : 'High'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <Network
+                          className={`h-5 w-5 ${getMetricColor(
+                            serverMetrics.network
+                          )} mr-2`}
+                        />
+                        <span className="font-medium">Network</span>
+                      </div>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={serverMetrics.network}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className={`text-lg font-bold ${getMetricColor(
+                            serverMetrics.network
+                          )}`}
+                        >
+                          {serverMetrics.network}%
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                    <Progress
+                      value={serverMetrics.network}
+                      className="h-2"
+                      indicatorClassName={getProgressColor(
+                        serverMetrics.network
+                      )}
+                    />
+                    <div className="mt-2 text-xs text-gray-500 flex justify-between">
+                      <span>1Gbps connection</span>
+                      <span>{Math.round(serverMetrics.network * 10)} Mbps</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <Activity
+                          className={`h-5 w-5 ${getMetricColor(
+                            serverMetrics.disk
+                          )} mr-2`}
+                        />
+                        <span className="font-medium">Disk I/O</span>
+                      </div>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={serverMetrics.disk}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className={`text-lg font-bold ${getMetricColor(
+                            serverMetrics.disk
+                          )}`}
+                        >
+                          {serverMetrics.disk}%
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                    <Progress
+                      value={serverMetrics.disk}
+                      className="h-2"
+                      indicatorClassName={getProgressColor(serverMetrics.disk)}
+                    />
+                    <div className="mt-2 text-xs text-gray-500 flex justify-between">
+                      <span>SSD Storage</span>
+                      <span>{Math.round(serverMetrics.disk * 2)} MB/s</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                  <h3 className="text-sm font-medium mb-2">Active Services</h3>
+                  <div className="space-y-2">
+                    {[
+                      {
+                        name: 'Web Server',
+                        status: 'Running',
+                        uptime: `${serverMetrics.uptime} days`,
+                        load: Math.round(serverMetrics.cpu * 0.7),
+                      },
+                      {
+                        name: 'Database',
+                        status: 'Running',
+                        uptime: `${serverMetrics.uptime} days`,
+                        load: Math.round(serverMetrics.memory * 0.6),
+                      },
+                      {
+                        name: 'API Gateway',
+                        status: 'Running',
+                        uptime: '12 days',
+                        load: Math.round(serverMetrics.network * 0.8),
+                      },
+                      {
+                        name: 'Monitoring',
+                        status: 'Running',
+                        uptime: `${serverMetrics.uptime} days`,
+                        load: Math.round(serverMetrics.disk * 0.3),
+                      },
+                    ].map((service, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center"
+                      >
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                          <span className="text-sm">{service.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Progress
+                            value={service.load}
+                            className="w-20 h-1.5"
+                          />
+                          <div className="text-xs text-gray-500">
+                            {service.uptime}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Metrics Chart */}
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={serverHistory}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      opacity={0.1}
+                    />
+                    <XAxis dataKey="timestamp" />
+                    <YAxis domain={[0, 100]} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                        border: 'none',
+                      }}
+                    />
+                    <Legend />
+                    {selectedMetric === 'cpu' && (
+                      <Line
+                        type="monotone"
+                        dataKey="cpu"
+                        name="CPU Usage"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 8 }}
+                        isAnimationActive={true}
+                      />
+                    )}
+                    {selectedMetric === 'memory' && (
+                      <Line
+                        type="monotone"
+                        dataKey="memory"
+                        name="Memory Usage"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 8 }}
+                        isAnimationActive={true}
+                      />
+                    )}
+                    {selectedMetric === 'network' && (
+                      <Line
+                        type="monotone"
+                        dataKey="network"
+                        name="Network Traffic"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 8 }}
+                        isAnimationActive={true}
+                      />
+                    )}
+                    {selectedMetric === 'disk' && (
+                      <Line
+                        type="monotone"
+                        dataKey="disk"
+                        name="Disk I/O"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 8 }}
+                        isAnimationActive={true}
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <h3 className="text-sm font-medium mb-2">System Information</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500">
+                    Operating System
+                  </span>
+                  <p className="text-sm font-medium">Linux Ubuntu 22.04 LTS</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500">Kernel Version</span>
+                  <p className="text-sm font-medium">5.15.0-58-generic</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500">Last Reboot</span>
+                  <p className="text-sm font-medium">
+                    {serverMetrics.uptime} days ago
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500">Temperature</span>
+                  <p
+                    className={`text-sm font-medium ${getMetricColor(
+                      serverMetrics.temperature
+                    )}`}
+                  >
+                    {serverMetrics.temperature}°C
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -833,128 +1401,55 @@ function AdminDashboard({ onLogout }) {
                 <Badge>{alertsCount} New</Badge>
               </div>
             </CardHeader>
-            <CardContent></CardContent>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-2 bg-red-50 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <div className="h-2 w-2 mt-2 rounded-full bg-red-500"></div>
+                    <div>
+                      <p className="text-sm font-medium">Security Alert</p>
+                      <p className="text-xs text-gray-500">
+                        Unusual login detected from new location
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        2 minutes ago
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-2 bg-amber-50 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <div className="h-2 w-2 mt-2 rounded-full bg-amber-500"></div>
+                    <div>
+                      <p className="text-sm font-medium">System Warning</p>
+                      <p className="text-xs text-gray-500">
+                        High CPU usage detected on main server
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        15 minutes ago
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-2 bg-blue-50 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <div className="h-2 w-2 mt-2 rounded-full bg-blue-500"></div>
+                    <div>
+                      <p className="text-sm font-medium">
+                        New User Registration
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        User John Doe has registered
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">1 hour ago</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
           </Card>
         </motion.div>
       </div>
-
-      {/* Server Status */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
-      >
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl font-semibold">
-              Server Status
-            </CardTitle>
-            <CardDescription>
-              Real-time monitoring of server resources
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <Cpu className="h-5 w-5 text-blue-500 mr-2" />
-                    <span className="font-medium">CPU Load</span>
-                  </div>
-                  <span className="text-sm font-bold">65%</span>
-                </div>
-                <Progress value={65} className="h-2" />
-                <p className="text-xs text-gray-500">4 cores @ 2.5GHz</p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <Server className="h-5 w-5 text-purple-500 mr-2" />
-                    <span className="font-medium">Memory Usage</span>
-                  </div>
-                  <span className="text-sm font-bold">45%</span>
-                </div>
-                <Progress value={45} className="h-2" />
-                <p className="text-xs text-gray-500">16GB DDR4 RAM</p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <Network className="h-5 w-5 text-green-500 mr-2" />
-                    <span className="font-medium">Network Traffic</span>
-                  </div>
-                  <span className="text-sm font-bold">45 Mbps</span>
-                </div>
-                <Progress value={45} className="h-2" />
-                <p className="text-xs text-gray-500">1Gbps connection</p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <h3 className="text-sm font-medium mb-2">Active Services</h3>
-                <div className="space-y-2">
-                  {[
-                    {
-                      name: 'Web Server',
-                      status: 'Running',
-                      uptime: '45 days',
-                    },
-                    { name: 'Database', status: 'Running', uptime: '45 days' },
-                    {
-                      name: 'API Gateway',
-                      status: 'Running',
-                      uptime: '12 days',
-                    },
-                    {
-                      name: 'Monitoring',
-                      status: 'Running',
-                      uptime: '45 days',
-                    },
-                  ].map((service, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center"
-                    >
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                        <span className="text-sm">{service.name}</span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {service.uptime} uptime
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <h3 className="text-sm font-medium mb-2">System Information</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="grid grid-cols-2">
-                    <span className="text-gray-500">Operating System:</span>
-                    <span>Linux Ubuntu 22.04 LTS</span>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <span className="text-gray-500">Kernel Version:</span>
-                    <span>5.15.0-58-generic</span>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <span className="text-gray-500">Last Reboot:</span>
-                    <span>45 days ago</span>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <span className="text-gray-500">IP Address:</span>
-                    <span>192.168.1.100</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
     </div>
   );
 }
