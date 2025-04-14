@@ -35,6 +35,15 @@ import {
   Building,
 } from 'lucide-react';
 
+import axios from 'axios';
+
+const generateHexPassword = () => {
+  return Array.from(
+    { length: 32 },
+    () => Math.floor(Math.random() * 16).toString(16)
+  ).join('');
+};
+
 function UserForm({ existingUser, onSuccess }) {
   const { addUser, updateUser, currentUser } = useUser();
   const navigate = useNavigate();
@@ -82,25 +91,25 @@ function UserForm({ existingUser, onSuccess }) {
       newErrors.email = 'Email is invalid';
     }
 
-    if (!isEditMode) {
-      if (!formData.password) {
-        newErrors.password = 'Password is required';
-      } else if (formData.password.length < 6) {
-        newErrors.password = 'Password must be at least 6 characters';
-      }
+    // if (!isEditMode) {
+    //   if (!formData.password) {
+    //     newErrors.password = 'Password is required';
+    //   } else if (formData.password.length < 6) {
+    //     newErrors.password = 'Password must be at least 6 characters';
+    //   }
 
-      if (formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
-      }
-    } else if (formData.password && formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    } else if (
-      formData.password &&
-      formData.confirmPassword &&
-      formData.password !== formData.confirmPassword
-    ) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
+    //   if (formData.password !== formData.confirmPassword) {
+    //     newErrors.confirmPassword = 'Passwords do not match';
+    //   }
+    // } else if (formData.password && formData.password.length < 6) {
+    //   newErrors.password = 'Password must be at least 6 characters';
+    // } else if (
+    //   formData.password &&
+    //   formData.confirmPassword &&
+    //   formData.password !== formData.confirmPassword
+    // ) {
+    //   newErrors.confirmPassword = 'Passwords do not match';
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -134,17 +143,23 @@ function UserForm({ existingUser, onSuccess }) {
           toast.error('Failed to update user. Please try again.');
         }
       } else {
+        const newpassword=generateHexPassword();
         // For new users, create in both Auth and Firestore without connection data
         const userId = await addUser({
           username: formData.username,
           email: formData.email,
-          password: formData.password,
+          password:newpassword,
           role: formData.role,
           isActive: formData.isActive ?? true,
-          // No connection data for new users
         });
 
-        if (userId) {
+        const response = await axios.post('http://localhost:3000/admin/send-email-details',{
+          email: formData.email,
+          username: formData.username,
+          password: newpassword,
+        });
+
+        if (userId && response.status === 200) {
           toast.success(`User ${formData.username} created successfully.`);
           if (onSuccess) onSuccess();
         } else {
@@ -276,7 +291,7 @@ function UserForm({ existingUser, onSuccess }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="password" className="flex items-center gap-2">
                     <Key className="h-4 w-4 text-gray-500" />
@@ -335,7 +350,7 @@ function UserForm({ existingUser, onSuccess }) {
                     </p>
                   )}
                 </div>
-              </div>
+              </div> */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
