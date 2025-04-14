@@ -149,6 +149,21 @@ const LandingPage = () => {
         console.log('Saved to DB');
       }
 
+      const emailresponse = await axios.post('http://localhost:3000/admin/send-email',
+        {
+          username: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          message: formData.message,
+        }
+      );
+
+
+      if(emailresponse.status === 200) {
+        console.log('Email sent successfully');
+      }
+
       console.log('Form submitted with ID:', docRef.id);
       setSubmitSuccess(true);
 
