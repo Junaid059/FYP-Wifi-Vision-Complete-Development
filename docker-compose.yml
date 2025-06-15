@@ -1,0 +1,12 @@
+version: '3.9'
+
+services:
+  frontend:
+    image: junaid757/fypwivi-frontend
+    ports:
+      - "3000:5173"  # maps host port 3000 to container's Vite port 5173
+
+  backend:
+    image: junaid757/fypwivi-backend
+    ports:
+      - "5001:5000"  # maps host port 5000 to backend's port 5000
